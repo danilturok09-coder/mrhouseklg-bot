@@ -37,7 +37,7 @@ def webhook():
 @web_app.route('/set_webhook')
 def set_webhook():
     # ЗАМЕНИТЕ НА СВОЙ РЕАЛЬНЫЙ URL!
-    WEBHOOK_URL = "https://mr-house-bot.onrender.com/webhook"
+    WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
     asyncio.run(app.bot.set_webhook(url=WEBHOOK_URL))
     return f"Webhook установлен на {WEBHOOK_URL}"
 
