@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from flask import Flask, request
 import asyncio
 
-TOKEN = "ВАШ_ТОКЕН_ОТ_BOTFATHER"  # ← ОБЯЗАТЕЛЬНО ЗАМЕНИТЬ!
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← ОБЯЗАТЕЛЬНО ЗАМЕНИТЬ!
 
 def get_main_menu():
     from telegram import ReplyKeyboardMarkup
