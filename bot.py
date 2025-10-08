@@ -31,15 +31,14 @@ web_app = Flask(__name__)
 def webhook():
     json_data = request.get_json(force=True)
     update = Update.de_json(json_data, app.bot)
-    asyncio.run(app.process_update(update))  # ← обрабатываем сразу
+    asyncio.run(app.process_update(update))  # ← Обрабатываем сразу!
     return 'OK', 200
 
 @web_app.route('/set_webhook')
 def set_webhook():
-    # ЗАМЕНИТЕ НА СВОЙ РЕАЛЬНЫЙ URL!
     WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
     asyncio.run(app.bot.set_webhook(url=WEBHOOK_URL))
-    return f"Webhook установлен на {WEBHOOK_URL}"
+    return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 @web_app.route('/')
 def home():
