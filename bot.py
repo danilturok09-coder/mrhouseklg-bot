@@ -74,5 +74,12 @@ def home():
 
 # --- Точка входа ---
 if __name__ == '__main__':
-    asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
+    async def main():
+        # Инициализация и запуск приложения (важно для PTB v20+)
+        await application.initialize()
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        await application.start()
+        print("✅ Bot initialized and running via webhook")
+
+    asyncio.run(main())
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
