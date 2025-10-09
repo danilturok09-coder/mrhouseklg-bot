@@ -63,9 +63,10 @@ async def webhook():
     return "OK", 200
 
 @web_app.route('/set_webhook')
-async def set_webhook():
-    await application.bot.set_webhook(url=WEBHOOK_URL)
+def set_webhook():
+    asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
+
 
 @web_app.route('/')
 def home():
