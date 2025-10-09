@@ -79,4 +79,5 @@ def home():
 
 
 # --- Точка входа ---
-if name == '__main
+if __name__ == '__main__':
+
