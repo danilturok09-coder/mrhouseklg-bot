@@ -1,10 +1,10 @@
 # bot.py
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from flask import Flask, request
 import asyncio
 
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← ОБЯЗАТЕЛЬНО ЗАМЕНИТЬ!
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← Обязательно замените!
 
 def get_main_menu():
     from telegram import ReplyKeyboardMarkup
@@ -14,36 +14,39 @@ def get_main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context: CallbackContext):
     welcome_text = (
         "Добро пожаловать в бот Mr. House 👷‍♂️\n"
         "Здесь Вы можете ознакомиться с нашими проектами, посмотреть готовые дома, "
         "узнать стоимость строительства домов и задать вопросы нашему помощнику"
     )
-    await update.message.reply_text(welcome_text, reply_markup=get_main_menu())
+    update.message.reply_text(welcome_text, reply_markup=get_main_menu())
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_message(update: Update, context: CallbackContext):
     text = update.message.text
     if text == "Посмотреть готовые дома":
-        await update.message.reply_text("🏡 Готовые дома:\n\nРаздел в разработке...")
+        update.message.reply_text("🏡 Готовые дома:\n\nРаздел в разработке...")
     elif text == "Узнать стоимость строительства":
-        await update.message.reply_text("💰 Стоимость строительства:\n\nРаздел в разработке...")
+        update.message.reply_text("💰 Стоимость строительства:\n\nРаздел в разработке...")
     elif text == "Посмотреть проекты и цены":
-        await update.message.reply_text("📐 Проекты и цены:\n\nРаздел в разработке...")
+        update.message.reply_text("📐 Проекты и цены:\n\nРаздел в разработке...")
     elif text == "Задать вопросы":
-        await update.message.reply_text(
+        update.message.reply_text(
             "❓ Задать вопросы:\n\nНапишите свой вопрос — менеджер ответит!\nИли звоните: +7 (999) 123-45-67"
         )
     else:
-        await update.message.reply_text(
+        update.message.reply_text(
             "Извините, я вас не понял. Используйте кнопки ниже:",
             reply_markup=get_main_menu()
         )
 
-# Создаём Telegram Application
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+# Создаём Updater (старый стиль)
+updater = Updater(token=TOKEN, use_context=True)
+dispatcher = updater.dispatcher
+
+# Добавляем обработчики
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
 # Flask app
 web_app = Flask(__name__)
@@ -51,14 +54,16 @@ web_app = Flask(__name__)
 @web_app.route('/webhook', methods=['POST'])
 def webhook():
     json_data = request.get_json(force=True)
-    update = Update.de_json(json_data, app.bot)
-    asyncio.run(app.process_update(update))  # Обрабатываем сразу!
+    update = Update.de_json(json_data, updater.bot)
+    # Обрабатываем обновление сразу
+    asyncio.run(dispatcher.process_update(update))
     return 'OK', 200
 
 @web_app.route('/set_webhook')
 def set_webhook():
     WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
-    asyncio.run(app.bot.set_webhook(url=WEBHOOK_URL))
+    # Устанавливаем вебхук
+    updater.bot.set_webhook(url=WEBHOOK_URL)
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 @web_app.route('/')
