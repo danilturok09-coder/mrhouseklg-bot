@@ -62,5 +62,6 @@ def set_webhook():
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 @web_app.route('/')
+
 def home():
     return "✅ Mr. House Bot работает!"
