@@ -4,8 +4,8 @@ from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда свой токен
-WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"  # замени на свой URL на Render
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"
+WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"  # ← УБРАН ПРОБЕЛ!
 
 # --- Создаём Flask приложение ---
 web_app = Flask(__name__)
@@ -33,7 +33,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Обработка сообщений ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-
     if text == "Посмотреть готовые дома":
         await update.message.reply_text("🏡 Готовые дома:\n\nРаздел в разработке...")
     elif text == "Узнать стоимость строительства":
@@ -56,10 +55,10 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_m
 
 # --- Flask webhook маршруты ---
 @web_app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
-    await application.process_update(update)
+    asyncio.run(application.process_update(update))  # ← Синхронный вызов
     return "OK", 200
 
 @web_app.route('/set_webhook')
@@ -67,19 +66,6 @@ def set_webhook():
     asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
-
 @web_app.route('/')
 def home():
     return "✅ Mr. House Bot работает!"
-
-# --- Точка входа ---
-if __name__ == '__main__':
-    async def main():
-        # Инициализация и запуск приложения (важно для PTB v20+)
-        await application.initialize()
-        await application.bot.set_webhook(url=WEBHOOK_URL)
-        await application.start()
-        print("✅ Bot initialized and running via webhook")
-
-    asyncio.run(main())
-    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
