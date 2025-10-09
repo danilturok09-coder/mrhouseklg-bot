@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from flask import Flask, request
 import asyncio
 
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← Обязательно замените!
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← ОБЯЗАТЕЛЬНО ЗАМЕНИТЬ!
 
 def get_main_menu():
     from telegram import ReplyKeyboardMarkup
@@ -40,7 +40,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=get_main_menu()
         )
 
-# Создаём Application
+# Создаём Telegram Application
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -52,7 +52,7 @@ web_app = Flask(__name__)
 def webhook():
     json_data = request.get_json(force=True)
     update = Update.de_json(json_data, app.bot)
-    asyncio.run(app.process_update(update))  # ← Обрабатываем сразу!
+    asyncio.run(app.process_update(update))  # Обрабатываем сразу!
     return 'OK', 200
 
 @web_app.route('/set_webhook')
@@ -62,6 +62,5 @@ def set_webhook():
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 @web_app.route('/')
-
 def home():
     return "✅ Mr. House Bot работает!"
