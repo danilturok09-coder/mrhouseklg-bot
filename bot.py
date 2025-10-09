@@ -73,6 +73,7 @@ def home():
     return "✅ Mr. House Bot работает!"
 
 # --- Точка входа ---
+
 if __name__ == '__main__':
     async def main():
         # Инициализация и запуск приложения (важно для PTB v20+)
