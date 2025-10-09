@@ -5,14 +5,13 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда свой токен
-WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"  # замени на свой render URL
+WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"  # замени на свой URL на Render
 
 # --- Создаём Flask приложение ---
 web_app = Flask(__name__)
 
-# --- Создаём Telegram Application (новый способ) ---
+# --- Создаём Telegram Application ---
 application = Application.builder().token(TOKEN).build()
-
 
 # --- Главное меню ---
 def get_main_menu():
@@ -21,7 +20,6 @@ def get_main_menu():
         ["Посмотреть проекты и цены", "Задать вопросы"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
 
 # --- Команда /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -32,10 +30,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_menu())
 
-
 # --- Обработка сообщений ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+
     if text == "Посмотреть готовые дома":
         await update.message.reply_text("🏡 Готовые дома:\n\nРаздел в разработке...")
     elif text == "Узнать стоимость строительства":
@@ -52,11 +50,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=get_main_menu()
         )
 
-
-# --- Регистрация обработчиков ---
+# --- Регистрируем обработчики ---
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
 
 # --- Flask webhook маршруты ---
 @web_app.route('/webhook', methods=['POST'])
@@ -66,20 +62,16 @@ async def webhook():
     await application.process_update(update)
     return "OK", 200
 
-
 @web_app.route('/set_webhook')
 async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
-
 @web_app.route('/')
 def home():
     return "✅ Mr. House Bot работает!"
 
-
 # --- Точка входа ---
-if name == '__main__':
+if __name__ == '__main__':
     asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
