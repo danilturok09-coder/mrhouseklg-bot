@@ -1,4 +1,5 @@
 import os
+import threading
 import asyncio
 from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
@@ -11,13 +12,13 @@ from telegram.ext import (
 )
 
 # === Конфигурация ===
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь свой токен
+TOKEN = "ВАШ_ТОКЕН_ОТ_BOTFATHER"  # вставь сюда токен
 WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
-# Flask приложение
+# === Flask ===
 web_app = Flask(__name__)
 
-# Telegram Application
+# === Telegram Application ===
 application = Application.builder().token(TOKEN).build()
 
 
@@ -33,24 +34,23 @@ def get_main_menu():
 # === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Пользователь {update.effective_user.id} запустил /start")
-    welcome_text = (
+    await update.message.reply_text(
         "Добро пожаловать в бот Mr. House 👷‍♂️\n"
         "Здесь Вы можете ознакомиться с нашими проектами, посмотреть готовые дома, "
-        "узнать стоимость строительства и задать вопросы нашему помощнику."
+        "узнать стоимость строительства и задать вопросы нашему помощнику.",
+        reply_markup=get_main_menu()
     )
-    await update.message.reply_text(welcome_text, reply_markup=get_main_menu())
 
 
 # === Команда /debug ===
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bot = context.bot
-    me = await bot.get_me()
+    me = await context.bot.get_me()
     await update.message.reply_text(
-        f"✅ Бот активен!\n\nИмя: {me.first_name}\nUsername: @{me.username}\nID: {me.id}"
+        f"✅ Бот активен!\nИмя: {me.first_name}\nUsername: @{me.username}\nID: {me.id}"
     )
 
 
-# === Обработка сообщений ===
+# === Обработка обычных сообщений ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     print(f"💬 Получено сообщение: {text}")
@@ -62,7 +62,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "Посмотреть проекты и цены":
         await update.message.reply_text("📐 Проекты и цены:\n\nРаздел в разработке...")
     elif text == "Задать вопросы":
-        await update.message.reply_text("❓ Напишите свой вопрос — менеджер ответит!")
+        await update.message.reply_text(
+            "❓ Напишите свой вопрос — менеджер ответит!\n"
+            "Или звоните: +7 (999) 123-45-67"
+        )
     else:
         await update.message.reply_text("Используйте кнопки ниже:", reply_markup=get_main_menu())
 
@@ -80,42 +83,38 @@ def home():
 
 
 @web_app.route('/set_webhook')
-async def set_webhook():
-    await application.bot.set_webhook(url=WEBHOOK_URL)
+def set_webhook():
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.bot.set_webhook(url=WEBHOOK_URL))
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 
 @web_app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     print(f"📨 Получен апдейт от Telegram: {data}")
     update = Update.de_json(data, application.bot)
-    await application.process_update(update)
+
+    # Отправляем обработку в event loop Telegram Application
+    asyncio.run_coroutine_threadsafe(application.process_update(update), application.loop)
     return "OK", 200
 
 
-# === Инициализация бота при запуске сервера ===
-async def start_bot():
-    print("🚀 Инициализация Telegram Application...")
-    await application.initialize()
-    await application.start()
-    await application.bot.set_webhook(url=WEBHOOK_URL)
-    print("✅ Бот инициализирован и webhook установлен.")
+# === Фоновый запуск бота ===
+def run_bot():
+    async def start():
+        print("🚀 Инициализация Telegram Application...")
+        await application.initialize()
+        await application.start()
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        print("✅ Бот запущен и готов обрабатывать обновления.")
 
-
-# === Запуск через отдельный event loop ===
-def run_bot_background():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(start_bot())
-    loop.run_forever()
+    asyncio.run(start())
 
 
 if __name__ == "__main__":
-    import threading
+    # Telegram Application запускаем в отдельном потоке
+    threading.Thread(target=run_bot, daemon=True).start()
 
-    # Запускаем Telegram Application в отдельном потоке
-    threading.Thread(target=run_bot_background, daemon=True).start()
-
-    # Запускаем Flask
+    # Flask — основной веб-сервер
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
