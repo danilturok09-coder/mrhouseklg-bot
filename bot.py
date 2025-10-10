@@ -5,7 +5,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # === Настройки ===
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда токен
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ← вставь свой токен
 WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
 # === Flask-приложение ===
@@ -60,12 +60,15 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 
-# === Flask маршруты (синхронные) ===
+# === Flask маршруты ===
 @web_app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, application.bot)
-    asyncio.run(application.process_update(update))
+    try:
+        data = request.get_json(force=True)
+        update = Update.de_json(data, application.bot)
+        asyncio.run(application.process_update(update))
+    except Exception as e:
+        print(f"❌ Ошибка при обработке обновления: {e}")
     return "OK", 200
 
 
@@ -80,13 +83,10 @@ def home():
     return "✅ Mr. House Bot работает!"
 
 
-# === Точка входа ===
-if __name__ == '__main__':
-    async def main():
-        await application.initialize()
-        await application.bot.set_webhook(url=WEBHOOK_URL)
-        await application.start()
-        print("✅ Mr. House Bot запущен и готов обрабатывать обновления.")
-
-    asyncio.run(main())
-    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# === Инициализация при запуске Gunicorn ===
+# Render вызывает gunicorn bot:web_app, поэтому инициализируем приложение вручную
+print("🚀 Инициализация Telegram Application...")
+asyncio.run(application.initialize())
+asyncio.run(application.start())
+asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
+print("✅ Бот инициализирован и webhook установлен.")
