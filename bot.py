@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # === Настройки ===
 TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда токен
-WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"  # замени на свой URL на Render
+WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
 # === Flask-приложение ===
 web_app = Flask(__name__)
@@ -60,12 +60,12 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 
-# === Flask маршруты ===
+# === Flask маршруты (синхронные) ===
 @web_app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
-    await application.process_update(update)
+    asyncio.run(application.process_update(update))
     return "OK", 200
 
 
@@ -83,7 +83,6 @@ def home():
 # === Точка входа ===
 if __name__ == '__main__':
     async def main():
-        # Инициализация и запуск приложения (важно!)
         await application.initialize()
         await application.bot.set_webhook(url=WEBHOOK_URL)
         await application.start()
