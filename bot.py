@@ -66,7 +66,9 @@ def webhook():
     try:
         data = request.get_json(force=True)
         update = Update.de_json(data, application.bot)
-        asyncio.run(application.process_update(update))
+        # вместо asyncio.run — используем уже существующий event loop
+        loop = asyncio.get_event_loop()
+        loop.create_task(application.process_update(update))
     except Exception as e:
         print(f"❌ Ошибка при обработке обновления: {e}")
     return "OK", 200
@@ -74,7 +76,8 @@ def webhook():
 
 @web_app.route('/set_webhook')
 def set_webhook():
-    asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.bot.set_webhook(url=WEBHOOK_URL))
     return f"✅ Webhook установлен на {WEBHOOK_URL}"
 
 
@@ -83,10 +86,15 @@ def home():
     return "✅ Mr. House Bot работает!"
 
 
-# === Инициализация при запуске Gunicorn ===
-# Render вызывает gunicorn bot:web_app, поэтому инициализируем приложение вручную
-print("🚀 Инициализация Telegram Application...")
-asyncio.run(application.initialize())
-asyncio.run(application.start())
-asyncio.run(application.bot.set_webhook(url=WEBHOOK_URL))
-print("✅ Бот инициализирован и webhook установлен.")
+# === Инициализация при запуске (один event loop) ===
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+async def init_bot():
+    print("🚀 Инициализация Telegram Application...")
+    await application.initialize()
+    await application.start()
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    print("✅ Бот инициализирован и webhook установлен.")
+
+loop.create_task(init_bot())
