@@ -1,3 +1,2 @@
-python-telegram-bot==21.6
-Flask[async]==2.3.3
-gunicorn==21.2.0
+python-telegram-bot==20.7
+aiohttp==3.10.5
