@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 # === Конфигурация ===
-TOKEN = "ВАШ_ТОКЕН_ОТ_BOTFATHER"  # вставь сюда токен
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда токен
 WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
 # === Flask ===
