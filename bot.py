@@ -1,20 +1,20 @@
-# bot.py
 import asyncio
 import os
-import signal
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
+from aiohttp import web
 
+# === НАСТРОЙКИ ===
 TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"
-WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"https://mrhouseklg-bot.onrender.com{WEBHOOK_PATH}"
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# === ЛОГИ ===
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# === ХЕНДЛЕРЫ ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Узнать стоимость строительства", callback_data="price"),
@@ -28,47 +28,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Бот активен и получает апдейты!")
 
+# === ВЕБХУК-ОБРАБОТЧИК ===
+async def webhook_handler(request):
+    """Обрабатывает POST-запросы от Telegram"""
+    if request.method != "POST":
+        return web.Response(status=405)  # Method Not Allowed
+
+    try:
+        update_data = await request.json()
+        update = Update.de_json(update_data, bot_app.bot)
+        await bot_app.process_update(update)
+        return web.Response(text="OK")
+    except Exception as e:
+        logger.error(f"Ошибка в вебхуке: {e}")
+        return web.Response(status=500)
+
+# === ГЛОБАЛЬНОЕ ПРИЛОЖЕНИЕ ===
+bot_app = None
+
 async def main():
-    application = Application.builder().token(TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("debug", debug))
+    global bot_app
+    bot_app = Application.builder().token(TOKEN).build()
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("debug", debug))
 
     # Инициализация
-    await application.initialize()
+    await bot_app.initialize()
     logger.info("✅ Application initialized")
 
     # Установка вебхука
-    await application.bot.set_webhook(WEBHOOK_URL)
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
     logger.info(f"🔗 Webhook установлен на {WEBHOOK_URL}")
 
-    # Запуск сервера
+    # Запуск aiohttp сервера
     port = int(os.environ.get("PORT", 8443))
-    logger.info(f"🚀 Запуск вебхук-сервера на порту {port}...")
+    app = web.Application()
+    app.router.add_post(WEBHOOK_PATH, webhook_handler)
+    app.router.add_get("/", lambda r: web.Response(text="✅ MR.House Bot is running!"))
 
-    # Запускаем сервер в фоне
-    await application.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        webhook_url=WEBHOOK_URL
-    )
-    # Сервер будет работать, пока его не остановят
+    logger.info(f"🚀 Запуск aiohttp сервера на порту {port}...")
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
 
-# === Обработка завершения работы ===
-def handle_shutdown():
-    """Корректное завершение при получении SIGTERM/SIGINT"""
-    logger.info("🛑 Получен сигнал завершения. Останавливаем бота...")
-    # Мы не можем напрямую вызвать shutdown здесь (нет loop),
-    # но asyncio.run() сам обработает исключение и завершит всё.
+    # Держим сервер включённым
+    try:
+        await asyncio.Event().wait()  # бесконечное ожидание
+    except KeyboardInterrupt:
+        pass
+    finally:
+        await runner.cleanup()
+        await bot_app.shutdown()
+        logger.info("🛑 Бот остановлен")
 
 if __name__ == "__main__":
-    # Регистрируем обработчик сигналов
-    signal.signal(signal.SIGTERM, lambda s, f: handle_shutdown())
-    signal.signal(signal.SIGINT, lambda s, f: handle_shutdown())
-
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("🛑 Бот остановлен вручную")
-    except Exception as e:
-        logger.error(f"❌ Критическая ошибка: {e}")
-        raise
+    asyncio.run(main())
