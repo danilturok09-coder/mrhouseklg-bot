@@ -11,7 +11,7 @@ from telegram.ext import (
 )
 
 # === Конфигурация ===
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь сюда токен
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # вставь свой токен
 WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
 # Flask приложение
@@ -19,6 +19,7 @@ web_app = Flask(__name__)
 
 # Telegram Application
 application = Application.builder().token(TOKEN).build()
+
 
 # === Главное меню ===
 def get_main_menu():
@@ -42,7 +43,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === Команда /debug ===
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"⚙️ /debug вызван пользователем {update.effective_user.id}")
     bot = context.bot
     me = await bot.get_me()
     await update.message.reply_text(
@@ -62,14 +62,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "Посмотреть проекты и цены":
         await update.message.reply_text("📐 Проекты и цены:\n\nРаздел в разработке...")
     elif text == "Задать вопросы":
-        await update.message.reply_text(
-            "❓ Напишите свой вопрос — менеджер ответит!\nИли звоните: +7 (999) 123-45-67"
-        )
+        await update.message.reply_text("❓ Напишите свой вопрос — менеджер ответит!")
     else:
-        await update.message.reply_text(
-            "Извините, я вас не понял. Используйте кнопки ниже:",
-            reply_markup=get_main_menu()
-        )
+        await update.message.reply_text("Используйте кнопки ниже:", reply_markup=get_main_menu())
 
 
 # === Регистрация обработчиков ===
@@ -79,6 +74,17 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_m
 
 
 # === Flask маршруты ===
+@web_app.route('/')
+def home():
+    return "✅ Mr. House Bot работает!"
+
+
+@web_app.route('/set_webhook')
+async def set_webhook():
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    return f"✅ Webhook установлен на {WEBHOOK_URL}"
+
+
 @web_app.route('/webhook', methods=['POST'])
 async def webhook():
     data = request.get_json(force=True)
@@ -88,25 +94,28 @@ async def webhook():
     return "OK", 200
 
 
-@web_app.route('/set_webhook')
-async def set_webhook():
-    await application.bot.set_webhook(url=WEBHOOK_URL)
-    return f"✅ Webhook установлен на {WEBHOOK_URL}"
-
-
-@web_app.route('/')
-def home():
-    return "✅ Mr. House Bot работает!"
-
-
-# === Запуск приложения ===
-async def main():
-    print("🚀 Запуск Telegram Application...")
+# === Инициализация бота при запуске сервера ===
+async def start_bot():
+    print("🚀 Инициализация Telegram Application...")
     await application.initialize()
     await application.start()
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("✅ Бот инициализирован и webhook установлен.")
 
 
+# === Запуск через отдельный event loop ===
+def run_bot_background():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_bot())
+    loop.run_forever()
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    import threading
+
+    # Запускаем Telegram Application в отдельном потоке
+    threading.Thread(target=run_bot_background, daemon=True).start()
+
+    # Запускаем Flask
+    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
