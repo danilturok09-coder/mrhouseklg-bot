@@ -1,20 +1,19 @@
-import os
-from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import logging
 import asyncio
+import os
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # === 🔧 НАСТРОЙКИ ===
-TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"  # ⚠️ ВСТАВЬ СВОЙ ТОКЕН СЮДА!
+TOKEN = "8497588100:AAFYuucn9j8teDlWZ6htv_N7IbaXLp1TQB8"
 WEBHOOK_URL = "https://mrhouseklg-bot.onrender.com/webhook"
 
 # === ЛОГИ ===
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
-
-# === СОЗДАЁМ ПРИЛОЖЕНИЕ Telegram ===
-application = Application.builder().token(TOKEN).build()
 
 # === ОБРАБОТЧИКИ ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -25,45 +24,48 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("О компании", callback_data="about")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("👋 Привет! Я бот MR.House. Чем могу помочь?", reply_markup=reply_markup)
+    await update.message.reply_text(
+        "👋 Привет! Я бот MR.House. Чем могу помочь?",
+        reply_markup=reply_markup
+    )
 
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Бот активен и получает апдейты!")
 
-# Регистрируем команды
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("debug", debug))
+# === ОСНОВНАЯ ФУНКЦИЯ ===
+async def main():
+    # Создаём приложение
+    application = Application.builder().token(TOKEN).build()
 
-# === Flask приложение ===
-web_app = Flask(__name__)
+    # Регистрируем хендлеры
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("debug", debug))
 
-@web_app.route("/", methods=["GET"])
-def index():
-    return "✅ MR.House бот работает!"
+    # Инициализация (один раз!)
+    await application.initialize()
+    logger.info("✅ Application initialized")
 
-@web_app.route("/set_webhook", methods=["GET"])
-def set_webhook():
-    try:
-        asyncio.get_event_loop().run_until_complete(
-            application.bot.set_webhook(WEBHOOK_URL)
-        )
-        return f"Webhook установлен на {WEBHOOK_URL}"
-    except Exception as e:
-        return f"Ошибка при установке вебхука: {e}"
+    # Устанавливаем вебхук
+    await application.bot.set_webhook(WEBHOOK_URL)
+    logger.info(f"🔗 Webhook установлен на {WEBHOOK_URL}")
 
-@web_app.route("/webhook", methods=["POST"])
-async def webhook():
-    """Получаем апдейты от Telegram"""
-    try:
-        update = Update.de_json(request.get_json(force=True), application.bot)
-        logger.info(f"📨 Получен апдейт от Telegram: {update}")
-        await application.initialize()
-        await application.process_update(update)
-    except Exception as e:
-        logger.error(f"Ошибка обработки апдейта: {e}")
-    return "OK"
+    # Запускаем вебхук-сервер
+    port = int(os.environ.get("PORT", 8443))
+    logger.info(f"🚀 Запуск вебхук-сервера на порту {port}...")
+    
+    await application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        webhook_url=WEBHOOK_URL,
+        secret_token=None  # можно добавить для безопасности
+    )
 
+# === ТОЧКА ВХОДА ===
 if __name__ == "__main__":
-    # Локальный запуск
-    asyncio.get_event_loop().run_until_complete(application.bot.set_webhook(WEBHOOK_URL))
-    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Бот остановлен вручную")
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка: {e}")
+        raise
