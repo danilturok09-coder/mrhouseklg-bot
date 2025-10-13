@@ -226,3 +226,33 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args.action)
+    # === РЕЖИМ АГЕНТА: обработка внешних команд ===
+import sys
+import requests
+
+def agent_command(action: str):
+    """
+    Позволяет вызывать команды прямо через GitHub Actions API.
+    Пример: agent_command('full') или agent_command('redeploy')
+    """
+    repo = "danilturok09-coder/mrhouseklg-bot"  # ← твой репозиторий
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if not github_token:
+        print("❌ Нет GitHub токена. Добавь его в Secrets как GITHUB_TOKEN.")
+        return
+
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/ops.yml/dispatches"
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github+json",
+    }
+    data = {
+        "ref": "main",
+        "inputs": {"action": action}
+    }
+    r = requests.post(url, headers=headers, json=data)
+    print(f"Запрос к GitHub Actions отправлен: {r.status_code} → {r.text}")
+
+# === Автозапуск, если передан параметр командой ===
+if len(sys.argv) > 1 and sys.argv[1] in ["full", "redeploy", "fix-webhook", "diagnose"]:
+    agent_command(sys.argv[1])
