@@ -1,0 +1,25 @@
+name: MrHouse Ops Agent
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do (diagnose / fix-webhook / redeploy / full)"
+        required: true
+        default: "full"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install requests
+      - name: Run ops agent
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: python ops_agent.py --action "${{ github.event.inputs.action }}"
