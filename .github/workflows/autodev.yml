@@ -1,0 +1,97 @@
+name: Auto Dev (MrHouse)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Что изменить? (если пусто — возьмём из CHANGE_REQUEST.md)"
+        required: false
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  maybe-run:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/shipit'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          pip install openai requests pytest
+
+      - name: Compose change request
+        id: req
+        run: |
+          if [ -n "${{ github.event.inputs.prompt }}" ]; then
+            echo "PROMPT=${{ github.event.inputs.prompt }}" >> $GITHUB_OUTPUT
+          else
+            echo "PROMPT=$(cat CHANGE_REQUEST.md 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate patch with OpenAI
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPT: ${{ steps.req.outputs.PROMPT }}
+        run: |
+          python scripts/ai_patch.py --prompt "$PROMPT"
+
+      - name: Run tests
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          pytest -q || (echo "Tests failed"; exit 1)
+
+      - name: Create PR if changes
+        env:
+          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+        run: |
+          python scripts/create_pr.py
+
+      - name: Deploy
+        if: success()
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          python scripts/deploy.py
+
+      - name: Smoke check
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+        run: |
+          python scripts/smoke_test.py
+
+      - name: Notify OK
+        if: success()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          python scripts/notify.py "✅ Deploy OK. Bot alive."
+
+      - name: Auto rollback on fail
+        if: failure()
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          python scripts/rollback.py || true
+          python scripts/notify.py "❌ Deploy failed. Rolled back."
