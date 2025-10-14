@@ -6,9 +6,9 @@ from flask import Flask, request, jsonify
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
-# === Конфиг из окружения (добавлены в Render / GitHub Secrets) ===
+# === Конфиг из окружения (Render/GitHub Secrets) ===
 BOT_TOKEN = os.environ["BOT_TOKEN"]                 # токен из @BotFather
-WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]       # твой придуманный секрет (тот же, что в setWebhook)
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]       # твой секрет для вебхука
 BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")  # https://<service>.onrender.com
 
 # === Логи ===
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # === Telegram Application (PTB v20, async) ===
 application = Application.builder().token(BOT_TOKEN).build()
 
-# Флаг и лок, чтобы не инициализировать PTB несколько раз (фикс "отвечает со второй попытки")
+# Фикс «/start отвечает со второй попытки» — инициализируем один раз
 _initialized = False
 _init_lock = asyncio.Lock()
 
@@ -40,13 +40,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("pong")
+    await update.message.reply_text("🏓 Pong! Бот работает ✅")
 
-# Регистрируем команды
-application.add_handler(CommandHandler(["start", "star"], start))  # /start и частая опечатка /star
+# Регистрация команд и «частой опечатки» /star
+application.add_handler(CommandHandler(["start", "star"], start))
 application.add_handler(CommandHandler("ping", ping))
-
-# На случай, если пользователь пришлёт просто "star" без слеша:
 application.add_handler(MessageHandler(filters.Regex(r"^/?star$"), start))
 
 # === Flask (WSGI) приложение ===
@@ -58,9 +56,7 @@ def index():
 
 @web_app.get("/set_webhook")
 def set_webhook_route():
-    """
-    Ручная установка вебхука (обычно не требуется — оп-агент делает это сам).
-    """
+    """Ручная установка вебхука (обычно не нужна — делает ops-агент)."""
     if not BASE_URL:
         return "BASE_URL не задан", 400
     url = f"{BASE_URL}/webhook"
@@ -75,21 +71,18 @@ def set_webhook_route():
 
 @web_app.post("/webhook")
 async def webhook():
-    """
-    Точка приёма апдейтов от Telegram.
-    ВАЖНО: проверяем секретный заголовок.
-    """
-    # 1) Проверка секрета: Telegram присылает его как X-Telegram-Bot-Secret-Token
+    """Приём апдейтов от Telegram с проверкой секрета."""
+    # 1) Проверка секрета
     header_secret = request.headers.get("X-Telegram-Bot-Secret-Token")
     if header_secret != WEBHOOK_SECRET:
         logger.warning("⛔️ Запрос с неверным секретом")
         return jsonify({"ok": False, "error": "forbidden"}), 403
 
-    # 2) Разбор апдейта
+    # 2) Разбор update
     data = request.get_json(force=True, silent=False)
     update = Update.de_json(data, application.bot)
 
-    # 3) Единоразовая инициализация PTB (фикс «/start срабатывает со второго раза»)
+    # 3) Единоразовая инициализация PTB
     global _initialized
     if not _initialized:
         async with _init_lock:
@@ -98,7 +91,7 @@ async def webhook():
                 _initialized = True
                 logger.info("✅ Telegram Application initialized")
 
-    # 4) Обработка апдейта
+    # 4) Обработка
     try:
         await application.process_update(update)
         return jsonify({"ok": True})
@@ -106,11 +99,13 @@ async def webhook():
         logger.exception("Ошибка обработки апдейта")
         return jsonify({"ok": False, "error": str(e)}), 500
 
-# Локальный запуск (для разработки, на Render не используется)
-if name == "__main__":
+
+# Локальный запуск (на Render не используется)
+if __name__ == "__main__":
     if BASE_URL:
         url = f"{BASE_URL}/webhook"
-        asyncio.get_event_loop().run_until_complete(application.bot.set_webhook(url, secret_token=WEBHOOK_SECRET)
+        asyncio.get_event_loop().run_until_complete(
+            application.bot.set_webhook(url, secret_token=WEBHOOK_SECRET)
         )
     port = int(os.environ.get("PORT", 10000))
     web_app.run(host="0.0.0.0", port=port)
