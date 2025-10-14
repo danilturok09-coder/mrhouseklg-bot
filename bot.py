@@ -64,6 +64,7 @@ async def webhook():
     return "OK"
 
 if __name__ == "__main__":
+   
     # Локальный запуск
     asyncio.get_event_loop().run_until_complete(application.bot.set_webhook(WEBHOOK_URL))
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
