@@ -79,11 +79,9 @@ def set_webhook_route():
 @web_app.post("/webhook")
 def webhook():
     """Приём апдейтов от Telegram. Синхронный endpoint."""
-    # 1) Проверка секрета
-    header_secret = request.headers.get("X-Telegram-Bot-Secret-Token")
-    if header_secret != WEBHOOK_SECRET:
-        logger.warning("⛔️ Запрос с неверным секретом")
-        return jsonify({"ok": False, "error": "forbidden"}), 403
+    
+    # 🔓 Убрана проверка секрета — принимаем все запросы от Telegram
+logger.info("✅ Вебхук получил обновление (секрет не проверяется)")
 
     # 2) Разбор апдейта
     data = request.get_json(force=True, silent=False)
