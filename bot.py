@@ -6,6 +6,11 @@ from flask import Flask, request, jsonify
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
+import telegram
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info(f"PTB version={getattr(telegram, '__version__', 'unknown')} | module={telegram.__file__}")
+
 # === Конфиг из окружения (Render/GitHub Secrets) ===
 BOT_TOKEN = os.environ["BOT_TOKEN"]                 # токен из @BotFather
 WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]       # твой секрет для вебхука
