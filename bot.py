@@ -47,12 +47,16 @@ MAIN_MENU = [
     ["🧮 Расчёт стоимости", "🤖 Задать вопрос ИИ"],
     ["👨‍💼 Связаться с менеджером"]
 ]
+
+def kb(rows): 
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+# ---- ЛОКАЦИИ (inline-список + карточки) ----
 LOCATIONS = [
     "Шопино", "Чижовка", "Сивково",
     "Некрасово", "Груздово", "ВеснаЛэнд (Черносвитино)",
     "р-н магазина METRO", "г.Рязань", "Еловка", "КП Московский",
 ]
-def kb(rows): return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 LOCATIONS_DATA = {
     "Шопино": {
@@ -65,6 +69,7 @@ LOCATIONS_DATA = {
         "presentation": f"{BASE_URL}/static/locations/shopino/presentation.pdf"
         if BASE_URL else "https://example.com/presentation-shopino.pdf",
     },
+    # добавишь остальные по образцу
 }
 
 def make_locations_inline() -> InlineKeyboardMarkup:
@@ -72,16 +77,66 @@ def make_locations_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= HANDLERS =========
+# ---- ПРОЕКТЫ (inline-список + карточки) ----
+PROJECTS = [
+    "Весна 90", "Весна 100", "Панорама 120", "Комфорт 70"
+]
+
+PROJECTS_DATA = {
+    "Весна 90": {
+        "photo": f"{BASE_URL}/static/projects/vesna90/cover.jpg" if BASE_URL else None,
+        "caption": (
+            "<b>Весна 90</b>\n"
+            "Площадь ~90 м² • 3 спальни • Кухня-гостиная.\n"
+            "Идеален для семьи из 3–4 человек."
+        ),
+        "presentation": f"{BASE_URL}/static/projects/vesna90/presentation.pdf"
+        if BASE_URL else "https://example.com/presentation-vesna90.pdf",
+    },
+    "Весна 100": {
+        "photo": f"{BASE_URL}/static/projects/vesna100/cover.jpg" if BASE_URL else None,
+        "caption": (
+            "<b>Весна 100</b>\n"
+            "Площадь ~100 м² • 3 спальни • Терраса.\n"
+            "Комфортный и тёплый дом на круглый год."
+        ),
+        "presentation": f"{BASE_URL}/static/projects/vesna100/presentation.pdf"
+        if BASE_URL else "https://example.com/presentation-vesna100.pdf",
+    },
+    "Панорама 120": {
+        "photo": f"{BASE_URL}/static/projects/panorama120/cover.jpg" if BASE_URL else None,
+        "caption": (
+            "<b>Панорама 120</b>\n"
+            "Площадь ~120 м² • 2 этажа • Панорамные окна."
+        ),
+        "presentation": f"{BASE_URL}/static/projects/panorama120/presentation.pdf"
+        if BASE_URL else "https://example.com/presentation-panorama120.pdf",
+    },
+    "Комфорт 70": {
+        "photo": f"{BASE_URL}/static/projects/comfort70/cover.jpg" if BASE_URL else None,
+        "caption": (
+            "<b>Комфорт 70</b>\n"
+            "Площадь ~70 м² • 2 спальни • Бюджетный и уютный."
+        ),
+        "presentation": f"{BASE_URL}/static/projects/comfort70/presentation.pdf"
+        if BASE_URL else "https://example.com/presentation-comfort70.pdf",
+    },
+}
+
+def make_projects_inline() -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(f"🏡 {name}", callback_data=f"proj:{name}")] for name in PROJECTS]
+    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
+    return InlineKeyboardMarkup(rows)
+
+# ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("❗ Unhandled error", exc_info=context.error)
 
 async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Приветствие + баннер. Антидубль на 10 сек, чтобы избежать повторов при ретраях."""
+    """Приветствие + баннер + главное меню (антидубль 10с)."""
     now = time.time()
     last = context.user_data.get("_last_welcome_ts", 0)
     if now - last < 10:
-        # слишком быстро подряд — вероятно ретрай от Telegram
         return
     context.user_data["_last_welcome_ts"] = now
 
@@ -101,14 +156,13 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
             logger.warning(f"Не смог отправить фото-баннер: {e}")
 
     if not sent_banner:
-        # Шлём другой текст, чтобы не дублировать тот же caption
         await context.bot.send_message(chat_id=chat_id,
                                        text="👋 Привет! Я бот MR.House. Готов помочь.",
                                        parse_mode="HTML")
-
     await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
     context.user_data["state"] = "MAIN"
 
+# ---- Локации: список (inline) и карточка ----
 async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "LOC_LIST"
     text = "-----Вы в разделе локации домов-----\nВыберите локацию:"
@@ -139,6 +193,38 @@ async def send_location_card(chat, location_name: str, context: ContextTypes.DEF
     except Exception:
         await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
 
+# ---- Проекты: список (inline) и карточка ----
+async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["state"] = "PROJ_LIST"
+    text = "-----Вы в разделе проекты-----\nВыберите проект:"
+    markup = make_projects_inline()
+
+    if update.message:
+        await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("Проекты:", reply_markup=markup)
+    else:
+        await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
+
+async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
+    data = PROJECTS_DATA.get(project_name)
+    if not data:
+        await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
+        return
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
+        [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+    ])
+    try:
+        if data.get("photo"):
+            await context.bot.send_photo(chat_id=chat.id, photo=data["photo"],
+                                         caption=data["caption"], parse_mode="HTML", reply_markup=markup)
+        else:
+            raise RuntimeError("no photo")
+    except Exception:
+        await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
+
+# ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await send_welcome_with_photo(update, context)
@@ -157,9 +243,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "📍 Локации домов":
         return await show_locations_inline(update, context)
 
+    if text == "🏗️ Проекты":
+        return await show_projects_inline(update, context)
+
     if state == "MAIN":
         mapping = {
-            "🏗️ Проекты": "Каталог проектов скоро добавим 🔧",
             "🧮 Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
             "🤖 Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
             "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
@@ -168,11 +256,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
         return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
 
+    # Для списков LOC/PROJ клики идут через inline-кнопки — тут текст не обрабатываем.
+    return
+
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
     data = query.data or ""
     await query.answer()
 
+    # Локации
     if data.startswith("loc:"):
         loc = data[4:]
         try:
@@ -193,6 +285,28 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data["state"] = "LOC_LIST"
         return
 
+    # Проекты
+    if data.startswith("proj:"):
+        proj = data[5:]
+        try:
+            await query.edit_message_text(f"Проект {proj}:")
+        except Exception:
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+        return await send_project_card(query.message.chat, proj, context)
+
+    if data == "back_to_projects":
+        try:
+            await query.edit_message_text("Выберите проект:")
+            await query.edit_message_reply_markup(reply_markup=make_projects_inline())
+        except Exception:
+            await context.bot.send_message(query.message.chat_id, "Выберите проект:", reply_markup=make_projects_inline())
+        context.user_data["state"] = "PROJ_LIST"
+        return
+
+    # В меню
     if data == "back_to_menu":
         context.user_data.clear()
         try:
