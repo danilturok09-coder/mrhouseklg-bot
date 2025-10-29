@@ -1,363 +1,332 @@
+# bot.py
 import os
-import time
 import logging
 import asyncio
-from flask import Flask, request, jsonify
+from typing import Dict, Any
+
+from flask import Flask, request, url_for
+
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, ReplyKeyboardRemove
+    Update,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    InputMediaPhoto,
 )
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler, CallbackQueryHandler,
-    ContextTypes, filters
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
 )
 
-# ========= ENV =========
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
+# ==== Конфигурация через переменные окружения ====
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+BASE_URL = os.environ.get("BASE_URL", "").strip()  # https://mrhouseklg-bot.onrender.com
+MANAGER_USERNAME = os.environ.get("MANAGER_USERNAME", "")  # опционально @username
+MANAGER_PHONE = os.environ.get("MANAGER_PHONE", "")        # опционально +7...
 
-# ========= LOGGING =========
+if not BOT_TOKEN or not BASE_URL:
+    raise RuntimeError("Нужны переменные окружения BOT_TOKEN и BASE_URL")
+
+# ==== Логи ====
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bot")
-try:
-    import telegram
-    logger.info(f"PTB version={getattr(telegram,'__version__','unknown')} | module={telegram.__file__}")
-except Exception:
-    pass
 
-# ========= GLOBAL LOOP (один на весь процесс) =========
-LOOP = asyncio.new_event_loop()
-asyncio.set_event_loop(LOOP)
+# ==== Flask ====
+web_app = Flask(__name__, static_folder="static", static_url_path="/static")
 
-# ========= PTB APP =========
+# ==== Telegram application ====
 application = Application.builder().token(BOT_TOKEN).build()
-_initialized = False
 
-def ensure_initialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    LOOP.run_until_complete(application.initialize())
-    _initialized = True
-    logger.info("✅ Telegram Application initialized")
+# ----------------------------------------------------------------------
+# ДАННЫЕ
+# ----------------------------------------------------------------------
 
-# ========= UI =========
-MAIN_MENU = [
-    ["📍 Локации домов", "🏗️ Проекты"],
-    ["🧮 Расчёт стоимости", "🤖 Задать вопрос ИИ"],
-    ["👨‍💼 Связаться с менеджером"]
-]
-
-def kb(rows): 
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-# ---- ЛОКАЦИИ (inline-список + карточки) ----
+# Локации (inline-список)
 LOCATIONS = [
-    "Шопино", "Чижовка", "Сивково",
-    "Некрасово", "Груздово", "ВеснаЛэнд (Черносвитино)",
-    "р-н магазина METRO", "г.Рязань", "Еловка", "КП Московский",
+    "Шопино",
+    "Чижовка",
+    "Сивково",
+    "Некрасово",
+    "Груздово",
+    "ВеснаЛэнд (Черноcвитино)",
+    "р-н магазина МЕТРО",
+    "г. Рязань",
+    "Еловка",
+    "КП Московский",
 ]
 
-LOCATIONS_DATA = {
-    "Шопино": {
-        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg" if BASE_URL else None,
-        "caption": (
-            "<b>Шопино</b>\n"
-            "Посёлок с развитой инфраструктурой.\n"
-            "В презентации: фото, видеообзор, планировки и описание."
-        ),
-        "presentation": f"{BASE_URL}/static/locations/shopino/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-shopino.pdf",
+# Проекты (любой cover/presentation — указывайте реальные имена файлов)
+# Файлы кладём в: static/projects/<slug>/
+PROJECTS: Dict[str, Dict[str, Any]] = {
+    "vesna90": {
+        "title": "Весна 90",
+        "desc": "Компактный и светлый проект на 90 м² — идеален как первый дом.",
+        "cover": "vesna90.jpg",         # например: static/projects/vesna90/vesna90.jpg
+        "presentation": "vesna90.pdf",  # например: static/projects/vesna90/vesna90.pdf
     },
-    # добавишь остальные по образцу
-}
-
-def make_locations_inline() -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(name, callback_data=f"loc:{name}")] for name in LOCATIONS]
-    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
-    return InlineKeyboardMarkup(rows)
-
-# ---- ПРОЕКТЫ (inline-список + карточки) ----
-PROJECTS = [
-    "Весна 90", "Весна 100", "Панорама 120", "Комфорт 70"
-]
-
-PROJECTS_DATA = {
-    "Весна 90": {
-        "photo": f"{BASE_URL}/static/projects/vesna90/cover.jpg" if BASE_URL else None,
-        "caption": (
-            "<b>Весна 90</b>\n"
-            "Площадь ~90 м² • 3 спальни • Кухня-гостиная.\n"
-            "Идеален для семьи из 3–4 человек."
-        ),
-        "presentation": f"{BASE_URL}/static/projects/vesna90/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-vesna90.pdf",
+    "vesna98": {
+        "title": "Весна 98",
+        "desc": "Удобная планировка и панорамное остекление в столовой зоне.",
+        "cover": "vesna98.jpg",
+        "presentation": "vesna98.pdf",
     },
-    "Весна 100": {
-        "photo": f"{BASE_URL}/static/projects/vesna100/cover.jpg" if BASE_URL else None,
-        "caption": (
-            "<b>Весна 100</b>\n"
-            "Площадь ~100 м² • 3 спальни • Терраса.\n"
-            "Комфортный и тёплый дом на круглый год."
-        ),
-        "presentation": f"{BASE_URL}/static/projects/vesna100/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-vesna100.pdf",
+    "vesna105": {
+        "title": "Весна 105",
+        "desc": "Увеличенная версия 98-го — больше пространства и света.",
+        "cover": "vesna105.jpg",
+        "presentation": "vesna105.pdf",
     },
-    "Панорама 120": {
-        "photo": f"{BASE_URL}/static/projects/panorama120/cover.jpg" if BASE_URL else None,
-        "caption": (
-            "<b>Панорама 120</b>\n"
-            "Площадь ~120 м² • 2 этажа • Панорамные окна."
-        ),
-        "presentation": f"{BASE_URL}/static/projects/panorama120/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-panorama120.pdf",
-    },
-    "Комфорт 70": {
-        "photo": f"{BASE_URL}/static/projects/comfort70/cover.jpg" if BASE_URL else None,
-        "caption": (
-            "<b>Комфорт 70</b>\n"
-            "Площадь ~70 м² • 2 спальни • Бюджетный и уютный."
-        ),
-        "presentation": f"{BASE_URL}/static/projects/comfort70/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-comfort70.pdf",
+    "vesna112": {
+        "title": "Весна 112",
+        "desc": "Солнечная кухня-гостиная, две ванные, коридор с хранением.",
+        "cover": "vesna112.jpg",
+        "presentation": "vesna112.pdf",
     },
 }
 
-def make_projects_inline() -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(f"🏡 {name}", callback_data=f"proj:{name}")] for name in PROJECTS]
-    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
+WELCOME_IMAGE_PATH = "static/welcome.jpg"  # локальный путь в репо
+
+# ----------------------------------------------------------------------
+# УТИЛИТЫ КЛАВИАТУР
+# ----------------------------------------------------------------------
+
+def main_menu_kb() -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton("📍 Локации домов", callback_data="menu:locations")],
+        [InlineKeyboardButton("📐 Наши проекты", callback_data="menu:projects")],
+        [
+            InlineKeyboardButton("🧮 Расчёт стоимости", callback_data="menu:calc"),
+            InlineKeyboardButton("🤖 Вопрос ИИ", callback_data="menu:ai"),
+        ],
+        [InlineKeyboardButton("👤 Менеджер", callback_data="menu:manager")],
+    ]
     return InlineKeyboardMarkup(rows)
 
-# ========= HELPERS =========
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.exception("❗ Unhandled error", exc_info=context.error)
+def locations_kb() -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(title, callback_data=f"loc:{title}") ] for title in LOCATIONS]
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="back:main")])
+    return InlineKeyboardMarkup(rows)
 
-async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Приветствие + баннер + главное меню (антидубль 10с)."""
-    now = time.time()
-    last = context.user_data.get("_last_welcome_ts", 0)
-    if now - last < 10:
-        return
-    context.user_data["_last_welcome_ts"] = now
+def projects_kb() -> InlineKeyboardMarkup:
+    rows = []
+    for slug, meta in PROJECTS.items():
+        rows.append([InlineKeyboardButton(meta["title"], callback_data=f"proj:{slug}")])
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="back:main")])
+    return InlineKeyboardMarkup(rows)
 
-    banner_url = f"{BASE_URL}/static/welcome.jpg" if BASE_URL else None
-    caption = (
-        "👋 Привет! Я бот <b>MR.House</b>.\n"
-        "Помогу выбрать локацию и проект, посчитать стоимость и связать с менеджером."
+def back_to_locations_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ К локациям", callback_data="menu:locations")],
+         [InlineKeyboardButton("🏠 В главное меню", callback_data="back:main")]]
     )
 
-    chat_id = update.effective_chat.id
-    sent_banner = False
-    if banner_url:
+def back_to_projects_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ К проектам", callback_data="menu:projects")],
+         [InlineKeyboardButton("🏠 В главное меню", callback_data="back:main")]]
+    )
+
+# ----------------------------------------------------------------------
+# ХЕНДЛЕРЫ КОМАНД
+# ----------------------------------------------------------------------
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+
+    # Приветственная картинка (молча пропускаем, если файла нет)
+    if os.path.exists(WELCOME_IMAGE_PATH):
         try:
-            await context.bot.send_photo(chat_id=chat_id, photo=banner_url, caption=caption, parse_mode="HTML")
-            sent_banner = True
+            with open(WELCOME_IMAGE_PATH, "rb") as f:
+                await context.bot.send_photo(
+                    chat_id=chat.id,
+                    photo=f,
+                    caption=(
+                        "👋 Привет! Я бот **MR.House**.\n"
+                        "Помогу выбрать локацию и проект, посчитать стоимость "
+                        "и связать с менеджером."
+                    ),
+                    parse_mode="Markdown",
+                )
         except Exception as e:
-            logger.warning(f"Не смог отправить фото-баннер: {e}")
+            logger.warning("Не удалось отправить welcome.jpg: %s", e)
 
-    if not sent_banner:
-        await context.bot.send_message(chat_id=chat_id,
-                                       text="👋 Привет! Я бот MR.House. Готов помочь.",
-                                       parse_mode="HTML")
-    await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
-    context.user_data["state"] = "MAIN"
+    # Текст + меню
+    await update.message.reply_text(
+        "Выберите раздел 👇",
+        reply_markup=main_menu_kb(),
+    )
 
-# ---- Локации: список (inline) и карточка ----
-async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["state"] = "LOC_LIST"
-    text = "-----Вы в разделе локации домов-----\nВыберите локацию:"
-    markup = make_locations_inline()
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("pong")
 
-    if update.message:
-        await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("Локации:", reply_markup=markup)
-    else:
-        await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
+# ----------------------------------------------------------------------
+# ХЕНДЛЕРЫ CALLBACK (INLINE-КНОПКИ)
+# ----------------------------------------------------------------------
 
-async def send_location_card(chat, location_name: str, context: ContextTypes.DEFAULT_TYPE):
-    data = LOCATIONS_DATA.get(location_name)
-    if not data:
-        await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{location_name}».")
-        return
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
-        [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
-        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-    ])
-    try:
-        if data.get("photo"):
-            await context.bot.send_photo(chat_id=chat.id, photo=data["photo"],
-                                         caption=data["caption"], parse_mode="HTML", reply_markup=markup)
-        else:
-            raise RuntimeError("no photo")
-    except Exception:
-        await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
-
-# ---- Проекты: список (inline) и карточка ----
-async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["state"] = "PROJ_LIST"
-    text = "-----Вы в разделе проекты-----\nВыберите проект:"
-    markup = make_projects_inline()
-
-    if update.message:
-        await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("Проекты:", reply_markup=markup)
-    else:
-        await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
-
-async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
-    data = PROJECTS_DATA.get(project_name)
-    if not data:
-        await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
-        return
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
-        [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
-        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-    ])
-    try:
-        if data.get("photo"):
-            await context.bot.send_photo(chat_id=chat.id, photo=data["photo"],
-                                         caption=data["caption"], parse_mode="HTML", reply_markup=markup)
-        else:
-            raise RuntimeError("no photo")
-    except Exception:
-        await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
-
-# ========= COMMANDS & ROUTING =========
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await send_welcome_with_photo(update, context)
-
-async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["state"] = "MAIN"
-    await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
-
-async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🏓 Pong! Бот работает ✅")
-
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
-    state = context.user_data.get("state", "MAIN")
-
-    if text == "📍 Локации домов":
-        return await show_locations_inline(update, context)
-
-    if text == "🏗️ Проекты":
-        return await show_projects_inline(update, context)
-
-    if state == "MAIN":
-        mapping = {
-            "🧮 Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
-            "🤖 Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
-            "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
-        }
-        if text in mapping:
-            return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
-        return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
-
-    # Для списков LOC/PROJ клики идут через inline-кнопки — тут текст не обрабатываем.
-    return
-
-async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = query_update.callback_query
-    data = query.data or ""
+async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
     await query.answer()
 
-    # Локации
+    data = query.data or ""
+    chat_id = query.message.chat_id
+
+    # Главное меню
+    if data == "back:main":
+        await query.edit_message_text("Выберите раздел 👇", reply_markup=main_menu_kb())
+        return
+
+    # Меню: Локации
+    if data == "menu:locations":
+        await query.edit_message_text("-----Вы в разделе локации домов-----\nВыберите локацию:",
+                                      reply_markup=locations_kb())
+        return
+
+    # Меню: Проекты
+    if data == "menu:projects":
+        await query.edit_message_text("-----Вы в разделе проекты-----\nВыберите проект:",
+                                      reply_markup=projects_kb())
+        return
+
+    # Кнопка менеджера
+    if data == "menu:manager":
+        text = "Связаться с менеджером:\n"
+        if MANAGER_USERNAME:
+            text += f"• Telegram: {MANAGER_USERNAME}\n"
+        if MANAGER_PHONE:
+            text += f"• Телефон: {MANAGER_PHONE}"
+        if not (MANAGER_USERNAME or MANAGER_PHONE):
+            text += "Контакты будут добавлены позже."
+        await query.edit_message_text(text, reply_markup=back_to_main_or_menu())
+        return
+
+    # Заглушки (расчёт/ИИ)
+    if data == "menu:calc":
+        await query.edit_message_text(
+            "🧮 Калькулятор стоимости скоро подключим. "
+            "Напишите, какие параметры важны: площадь, материал, участок и т.д.",
+            reply_markup=back_to_main_or_menu(),
+        )
+        return
+
+    if data == "menu:ai":
+        await query.edit_message_text(
+            "🤖 Задайте вопрос текстом, я отвечу. (Раздел в разработке)",
+            reply_markup=back_to_main_or_menu(),
+        )
+        return
+
+    # Выбор локации
     if data.startswith("loc:"):
-        loc = data[4:]
-        try:
-            await query.edit_message_text(f"Локация {loc}:")
-        except Exception:
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-            except Exception:
-                pass
-        return await send_location_card(query.message.chat, loc, context)
-
-    if data == "back_to_locs":
-        try:
-            await query.edit_message_text("Выберите локацию:")
-            await query.edit_message_reply_markup(reply_markup=make_locations_inline())
-        except Exception:
-            await context.bot.send_message(query.message.chat_id, "Выберите локацию:", reply_markup=make_locations_inline())
-        context.user_data["state"] = "LOC_LIST"
+        title = data.split("loc:", 1)[1]
+        caption = f"Локация **{title}**.\nОпишите, что показать: остатки, план, коммуникации?"
+        await query.edit_message_caption(
+            caption,
+            parse_mode="Markdown"
+        ) if query.message.photo else await query.edit_message_text(
+            caption, parse_mode="Markdown", reply_markup=back_to_locations_kb()
+        )
+        # Если было не фото, добавим кнопки:
+        if not query.message.photo:
+            await query.edit_message_text(
+                caption,
+                parse_mode="Markdown",
+                reply_markup=back_to_locations_kb(),
+            )
         return
 
-    # Проекты
+    # Выбор проекта
     if data.startswith("proj:"):
-        proj = data[5:]
-        try:
-            await query.edit_message_text(f"Проект {proj}:")
-        except Exception:
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-            except Exception:
-                pass
-        return await send_project_card(query.message.chat, proj, context)
+        slug = data.split("proj:", 1)[1]
+        meta = PROJECTS.get(slug)
+        if not meta:
+            await query.edit_message_text("Проект не найден.", reply_markup=projects_kb())
+            return
 
-    if data == "back_to_projects":
+        # Готовим ссылки на обложку и презентацию
+        cover_url = f"{BASE_URL}/static/projects/{slug}/{meta['cover']}"
+        pres_url = f"{BASE_URL}/static/projects/{slug}/{meta['presentation']}"
+        caption = f"*{meta['title']}*\n{meta.get('desc','')}\n\n📄 Презентация: {pres_url}"
+
+        # Если предыдущее сообщение было с фото — заменим его через media
         try:
-            await query.edit_message_text("Выберите проект:")
-            await query.edit_message_reply_markup(reply_markup=make_projects_inline())
-        except Exception:
-            await context.bot.send_message(query.message.chat_id, "Выберите проект:", reply_markup=make_projects_inline())
-        context.user_data["state"] = "PROJ_LIST"
+            if query.message.photo:
+                await query.edit_message_media(
+                    media=InputMediaPhoto(media=cover_url, caption=caption, parse_mode="Markdown"),
+                    reply_markup=back_to_projects_kb(),
+                )
+            else:
+                # Иначе отправим новое фото и отредактируем предыдущее «текстом»
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=cover_url,
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=back_to_projects_kb(),
+                )
+                await query.edit_message_text(
+                    f"Вы выбрали проект: {meta['title']}",
+                    reply_markup=back_to_projects_kb(),
+                )
+        except Exception as e:
+            logger.warning("Не удалось отправить медиа проекта %s: %s", slug, e)
+            await query.edit_message_text(
+                f"{meta['title']}\n{meta.get('desc','')}\n\n📄 Презентация: {pres_url}",
+                reply_markup=back_to_projects_kb(),
+            )
         return
 
-    # В меню
-    if data == "back_to_menu":
-        context.user_data.clear()
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-        return await send_welcome_with_photo(query_update, context)
 
-# Регистрация
-application.add_handler(CommandHandler(["start", "star"], cmd_start))
-application.add_handler(CommandHandler("menu", cmd_menu))
-application.add_handler(CommandHandler("ping", cmd_ping))
-application.add_handler(CallbackQueryHandler(handle_callback))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-application.add_error_handler(error_handler)
+def back_to_main_or_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🏠 В главное меню", callback_data="back:main")]]
+    )
 
-# ========= FLASK =========
-web_app = Flask(__name__)
+# ----------------------------------------------------------------------
+# РЕГИСТРАЦИЯ ХЕНДЛЕРОВ
+# ----------------------------------------------------------------------
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("ping", ping))
+application.add_handler(CallbackQueryHandler(on_callback))
+
+# ----------------------------------------------------------------------
+# FLASK РОУТЫ (WEBHOOK)
+# ----------------------------------------------------------------------
 
 @web_app.get("/")
 def index():
-    return jsonify({"ok": True, "service": "MR.House bot"})
+    return "MR.House bot is up."
 
 @web_app.get("/set_webhook")
-def set_webhook_route():
-    if not BASE_URL:
-        return "BASE_URL не задан", 400
-    ensure_initialized()
+def set_webhook():
+    """Ручная установка вебхука (GET в браузере)."""
     url = f"{BASE_URL}/webhook"
     try:
-        LOOP.run_until_complete(application.bot.set_webhook(url))
+        asyncio.run(application.bot.set_webhook(url))
         return f"Webhook установлен на {url}"
     except Exception as e:
-        logger.exception("Ошибка при установке вебхука")
+        logger.exception("Ошибка set_webhook")
         return f"Ошибка при установке вебхука: {e}", 500
 
 @web_app.post("/webhook")
-def webhook():
-    ensure_initialized()
-    data = request.get_json(force=True, silent=False)
-    update = Update.de_json(data, application.bot)
+def receive_webhook():
+    """Сюда Telegram шлёт апдейты. Flask синхронный — внутри запускаем asyncio.run"""
     try:
-        LOOP.run_until_complete(application.process_update(update))
-        return jsonify({"ok": True})
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        asyncio.run(application.initialize())
+        asyncio.run(application.process_update(update))
+        return "OK"
     except Exception as e:
         logger.exception("Ошибка обработки апдейта")
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return f"Error: {e}", 500
 
+# Локальный запуск (не используется на Render, но удобно для отладки)
 if __name__ == "__main__":
-    if BASE_URL:
-        ensure_initialized()
-        LOOP.run_until_complete(application.bot.set_webhook(f"{BASE_URL}/webhook"))
-    port = int(os.environ.get("PORT", 10000))
-    web_app.run(host="0.0.0.0", port=port)
+    # Установка вебхука при локальном старте (опционально)
+    try:
+        asyncio.run(application.bot.set_webhook(f"{BASE_URL}/webhook"))
+    except Exception as e:
+        logger.warning("set_webhook при локальном старте: %s", e)
+
+    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "10000")))
+    
