@@ -69,7 +69,7 @@ LOCATIONS_DATA = {
         "presentation": f"{BASE_URL}/static/locations/shopino/presentation.pdf"
         if BASE_URL else "https://example.com/presentation-shopino.pdf",
     },
-    # добавишь остальные по образцу
+    # добавь остальные по образцу при необходимости
 }
 
 def make_locations_inline() -> InlineKeyboardMarkup:
@@ -79,47 +79,77 @@ def make_locations_inline() -> InlineKeyboardMarkup:
 
 # ---- ПРОЕКТЫ (inline-список + карточки) ----
 PROJECTS = [
-    "Весна 90", "Весна 100", "Панорама 120", "Комфорт 70"
+    "Весна 90", "Весна 98", "Весна 105", "Весна 112"
 ]
 
 PROJECTS_DATA = {
     "Весна 90": {
-        "photo": f"{BASE_URL}/static/projects/vesna90/cover.jpg" if BASE_URL else None,
+        "photo": f"{BASE_URL}/static/projects/vesna90/vesna90.jpg" if BASE_URL else None,
         "caption": (
             "<b>Весна 90</b>\n"
-            "Площадь ~90 м² • 3 спальни • Кухня-гостиная.\n"
-            "Идеален для семьи из 3–4 человек."
+            "Чудесный дом 90 м² с большими окнами в пол, которые наполняют кухню-гостиную солнечным светом.\n\n"
+            "• Кухня-гостиная: 24,4 м²\n"
+            "• Спальня: 16,9 м²\n"
+            "• Кабинет: 14,4 м²\n"
+            "• Детская: 14,4 м²\n"
+            "• Санузел: 5,9 м²\n"
+            "• Прихожая: 12,2 м²\n"
+            "• Крыльцо: 3,9 м²"
         ),
-        "presentation": f"{BASE_URL}/static/projects/vesna90/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-vesna90.pdf",
+        "presentation": f"{BASE_URL}/static/projects/vesna90/vesna90.pdf"
+        if BASE_URL else None,
     },
-    "Весна 100": {
-        "photo": f"{BASE_URL}/static/projects/vesna100/cover.jpg" if BASE_URL else None,
+    "Весна 98": {
+        "photo": f"{BASE_URL}/static/projects/vesna98/vesna98.jpg" if BASE_URL else None,
         "caption": (
-            "<b>Весна 100</b>\n"
-            "Площадь ~100 м² • 3 спальни • Терраса.\n"
-            "Комфортный и тёплый дом на круглый год."
+            "<b>Весна 98</b>\n"
+            "Комфортный проект 98 м²: потолок до 4,5 м и панорамное остекление в обеденной зоне.\n\n"
+            "• Кухня-гостиная: 27,3 м²\n"
+            "• Спальня: 17,1 м²\n"
+            "• Детская: 14 м²\n"
+            "• Кабинет: 14 м²\n"
+            "• Санузел: 6 м²\n"
+            "• Санузел гостевой: 2,5 м²\n"
+            "• Прихожая: 13,3 м²\n"
+            "• Крыльцо: 3,5 м²"
         ),
-        "presentation": f"{BASE_URL}/static/projects/vesna100/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-vesna100.pdf",
+        "presentation": f"{BASE_URL}/static/projects/vesna98/vesna98.pdf"
+        if BASE_URL else None,
     },
-    "Панорама 120": {
-        "photo": f"{BASE_URL}/static/projects/panorama120/cover.jpg" if BASE_URL else None,
+    "Весна 105": {
+        "photo": f"{BASE_URL}/static/projects/vesna105/vesna105.jpg" if BASE_URL else None,
         "caption": (
-            "<b>Панорама 120</b>\n"
-            "Площадь ~120 м² • 2 этажа • Панорамные окна."
+            "<b>Весна 105</b>\n"
+            "Увеличенная версия Весна 98 — ещё больше света и пространства.\n\n"
+            "• Кухня-гостиная: 27,5 м²\n"
+            "• Спальня: 18,6 м²\n"
+            "• Детская: 16 м²\n"
+            "• Кабинет: 16 м²\n"
+            "• Санузел: 5,9 м²\n"
+            "• Санузел гостевой: 2,7 м²\n"
+            "• Прихожая: 14,1 м²\n"
+            "• Крыльцо: 3,5 м²"
         ),
-        "presentation": f"{BASE_URL}/static/projects/panorama120/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-panorama120.pdf",
+        "presentation": f"{BASE_URL}/static/projects/vesna105/vesna105.pdf"
+        if BASE_URL else None,
     },
-    "Комфорт 70": {
-        "photo": f"{BASE_URL}/static/projects/comfort70/cover.jpg" if BASE_URL else None,
+    "Весна 112": {
+        "photo": f"{BASE_URL}/static/projects/vesna112/vesna112.jpg" if BASE_URL else None,
         "caption": (
-            "<b>Комфорт 70</b>\n"
-            "Площадь ~70 м² • 2 спальни • Бюджетный и уютный."
+            "<b>Весна 112</b>\n"
+            "Современный проект с окнами в пол и двумя санузлами. Кухня-гостиная залита светом.\n\n"
+            "• Кухня-гостиная: 28,9 м²\n"
+            "• Детская: 14,9 м²\n"
+            "• Кабинет: 14,9 м²\n"
+            "• Спальня: 19,2 м²\n"
+            "• Санузел: 5,7 м²\n"
+            "• Санузел 2: 1,6 м²\n"
+            "• Гардероб: 6,7 м²\n"
+            "• Прихожая: 15,2 м²\n"
+            "• Крыльцо: 4,9 м²"
         ),
-        "presentation": f"{BASE_URL}/static/projects/comfort70/presentation.pdf"
-        if BASE_URL else "https://example.com/presentation-comfort70.pdf",
+        "presentation": f"{BASE_URL}/static/projects/vesna112/vesna112.pdf"
+        if BASE_URL else None,
     },
 }
 
