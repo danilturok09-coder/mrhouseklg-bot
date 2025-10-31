@@ -2,7 +2,7 @@ import os
 import time
 import logging
 import asyncio
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request as flask_request
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -11,7 +11,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
     ContextTypes, filters
 )
-from telegram.request import HTTPXRequest  # ⬅️ добавили
+from telegram.request import HTTPXRequest  # для увеличения таймаутов
 
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
@@ -31,13 +31,13 @@ LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(LOOP)
 
 # ========= PTB APP (увеличили таймауты) =========
-request = HTTPXRequest(
+tg_request = HTTPXRequest(
     connect_timeout=20.0,
     read_timeout=60.0,
     write_timeout=60.0,
     pool_timeout=20.0,
 )
-application = Application.builder().token(BOT_TOKEN).request(request).build()
+application = Application.builder().token(BOT_TOKEN).request(tg_request).build()
 _initialized = False
 
 def ensure_initialized() -> None:
@@ -316,8 +316,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
         return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
 
-    # Для списков LOC/PROJ клики идут через inline-кнопки — тут текст не обрабатываем.
-    return
+    return  # клики по inline-кнопкам обрабатывает handle_callback
 
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
@@ -406,7 +405,7 @@ def set_webhook_route():
 @web_app.post("/webhook")
 def webhook():
     ensure_initialized()
-    data = request.get_json(force=True, silent=False)
+    data = flask_request.get_json(force=True, silent=False)  # ⬅️ используем flask_request
     update = Update.de_json(data, application.bot)
     try:
         LOOP.run_until_complete(application.process_update(update))
