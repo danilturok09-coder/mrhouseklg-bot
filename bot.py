@@ -229,24 +229,62 @@ async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
+# >>>>>>> ОБНОВЛЁННАЯ ФУНКЦИЯ <<<<<<<<
 async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
     data = PROJECTS_DATA.get(project_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
         return
+
+    # cache-buster: заставляем Telegram заново скачать картинку
+    photo_url = None
+    if data.get("photo"):
+        ts = int(time.time())
+        sep = "&" if "?" in data["photo"] else "?"
+        photo_url = f'{data["photo"]}{sep}v={ts}'
+
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
         [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
-    try:
-        if data.get("photo"):
-            await context.bot.send_photo(chat_id=chat.id, photo=data["photo"],
-                                         caption=data["caption"], parse_mode="HTML", reply_markup=markup)
-        else:
-            raise RuntimeError("no photo")
-    except Exception:
-        await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
+
+    # 1) Пытаемся как фото
+    if photo_url:
+        try:
+            await context.bot.send_photo(
+                chat_id=chat.id,
+                photo=photo_url,
+                caption=data["caption"],
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+            return
+        except Exception as e:
+            logger.warning(f"send_photo failed for {project_name}: {e}")
+
+    # 2) Резерв: отправим как документ
+    if data.get("photo"):
+        try:
+            await context.bot.send_document(
+                chat_id=chat.id,
+                document=photo_url or data["photo"],
+                caption=data["caption"],
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+            return
+        except Exception as e:
+            logger.warning(f"send_document failed for {project_name}: {e}")
+
+    # 3) Последний резерв: текст + кнопка на изображение
+    fallback_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🖼 Открыть изображение", url=data.get("photo") or "")],
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
+        [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+    ])
+    await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=fallback_markup)
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
