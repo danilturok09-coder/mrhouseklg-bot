@@ -2,10 +2,11 @@ import os
 import time
 import logging
 import asyncio
+from urllib.parse import unquote  # ⬅️ добавили
 from flask import Flask, jsonify, request as flask_request
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, ReplyKeyboardRemove
+    ReplyKeyboardMarkup, ReplyKeyboardRemove, InputFile  # ⬅️ добавили InputFile
 )
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
@@ -193,7 +194,7 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
     await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
     context.user_data["state"] = "MAIN"
 
-# ---- Локации: список (inline) и карточка ----
+# ---- ЛОКАЦИИ: список (inline) и карточка ----
 async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "LOC_LIST"
     text = "-----Вы в разделе локации домов-----\nВыберите локацию:"
@@ -236,28 +237,48 @@ async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
-# ---- Проект: карточка с фото + fallback без дублей ----
+# ---- Проект: сначала локальный файл, потом URL, затем fallback ----
 async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
     data = PROJECTS_DATA.get(project_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
         return
 
-    # cache-buster, чтобы Telegram заново тянул изображение
-    photo_url = None
-    if data.get("photo"):
-        ts = int(time.time())
-        sep = "&" if "?" in data["photo"] else "?"
-        photo_url = f'{data["photo"]}{sep}v={ts}'
+    photo_url = data.get("photo")  # без cache-buster
+    presentation = data["presentation"]
 
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
         [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
 
-    # 1) Пытаемся отправить как фото (единственная попытка)
-    if photo_url:
+    sent = False
+
+    # 1) Пробуем локальный файл: https://.../{BASE_URL}/static/... -> static/...
+    try:
+        local_path = None
+        if photo_url and BASE_URL and photo_url.startswith(f"{BASE_URL}/"):
+            rel_url = photo_url[len(BASE_URL):].lstrip("/")
+            rel_path = unquote(rel_url)
+            if rel_path.startswith("static/"):
+                local_path = rel_path
+
+        if local_path and os.path.isfile(local_path) and os.path.getsize(local_path) > 0:
+            with open(local_path, "rb") as f:
+                await context.bot.send_photo(
+                    chat_id=chat.id,
+                    photo=InputFile(f, filename=os.path.basename(local_path)),
+                    caption=data["caption"],
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+                sent = True
+    except Exception as e:
+        logger.warning(f"send_photo(local) failed for {project_name}: {e}")
+
+    # 2) Если локально не получилось — пробуем по URL
+    if not sent and photo_url:
         try:
             await context.bot.send_photo(
                 chat_id=chat.id,
@@ -266,23 +287,24 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
                 parse_mode="HTML",
                 reply_markup=markup
             )
-            return
+            sent = True
         except Exception as e:
-            logger.warning(f"send_photo failed for {project_name}: {e}")
+            logger.warning(f"send_photo(url) failed for {project_name}: {e}")
 
-    # 2) Fallback: только текст + кнопка «Открыть изображение»
-    fallback_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🖼 Открыть изображение", url=data.get("photo") or "")],
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
-        [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
-        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-    ])
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=data["caption"],
-        parse_mode="HTML",
-        reply_markup=fallback_markup
-    )
+    # 3) Fallback: текст + кнопка «Открыть изображение»
+    if not sent:
+        fallback_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🖼 Открыть изображение", url=photo_url or "")],
+            [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
+            [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+        ])
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=data["caption"],
+            parse_mode="HTML",
+            reply_markup=fallback_markup
+        )
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -405,7 +427,7 @@ def set_webhook_route():
 @web_app.post("/webhook")
 def webhook():
     ensure_initialized()
-    data = flask_request.get_json(force=True, silent=False)  # ⬅️ используем flask_request
+    data = flask_request.get_json(force=True, silent=False)  # используем flask_request
     update = Update.de_json(data, application.bot)
     try:
         LOOP.run_until_complete(application.process_update(update))
