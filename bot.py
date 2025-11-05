@@ -18,6 +18,9 @@ from telegram.request import HTTPXRequest  # для увеличения тай�
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
 
+# Принудительное обновление кэша Telegram (поменяешь число — подхватятся новые картинки)
+CACHE_VER = "2025-11-05-1"
+
 # ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bot")
@@ -68,7 +71,7 @@ LOCATIONS = [
 
 LOCATIONS_DATA = {
     "Шопино": {
-        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg" if BASE_URL else None,
+        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg?v={CACHE_VER}" if BASE_URL else None,
         "caption": (
             "<b>Шопино</b>\n"
             "Посёлок с развитой инфраструктурой.\n"
