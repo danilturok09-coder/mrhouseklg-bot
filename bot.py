@@ -1,23 +1,25 @@
-
 import os
 import time
 import logging
 import asyncio
-from urllib.parse import unquote  # ?? добавили
+from urllib.parse import unquote
 from flask import Flask, jsonify, request as flask_request
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, ReplyKeyboardRemove, InputFile  # ?? добавили InputFile
+    ReplyKeyboardMarkup, ReplyKeyboardRemove, InputFile
 )
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
     ContextTypes, filters
 )
-from telegram.request import HTTPXRequest  # для увеличения таймаутов
+from telegram.request import HTTPXRequest
 
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
+
+# Принудительное обновление кэша Telegram (для статических картинок)
+CACHE_VER = "2025-11-05-1"
 
 # ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
@@ -28,11 +30,11 @@ try:
 except Exception:
     pass
 
-# ========= GLOBAL LOOP (один на весь процесс) =========
+# ========= GLOBAL LOOP =========
 LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(LOOP)
 
-# ========= PTB APP (увеличили таймауты) =========
+# ========= PTB APP (увеличенные таймауты) =========
 tg_request = HTTPXRequest(
     connect_timeout=20.0,
     read_timeout=60.0,
@@ -43,24 +45,25 @@ application = Application.builder().token(BOT_TOKEN).request(tg_request).build()
 _initialized = False
 
 def ensure_initialized() -> None:
+    """Инициализируем PTB-Application ровно один раз в процессе."""
     global _initialized
     if _initialized:
         return
     LOOP.run_until_complete(application.initialize())
     _initialized = True
-    logger.info("? Telegram Application initialized")
+    logger.info("✅ Telegram Application initialized")
 
 # ========= UI =========
 MAIN_MENU = [
-    ["?? Локации домов", "??? Проекты"],
-    ["?? Расчёт стоимости", "?? Задать вопрос ИИ"],
-    ["????? Связаться с менеджером"]
+    ["📍 Локации домов", "🏗️ Проекты"],
+    ["🧮 Расчёт стоимости", "🤖 Задать вопрос ИИ"],
+    ["👨‍💼 Связаться с менеджером"]
 ]
 
 def kb(rows):
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
-# ---- ЛОКАЦИИ (inline-список + карточки) ----
+# ---- ЛОКАЦИИ ----
 LOCATIONS = [
     "Шопино", "Чижовка", "Сивково",
     "Некрасово", "Груздово", "ВеснаЛэнд (Черносвитино)",
@@ -69,7 +72,7 @@ LOCATIONS = [
 
 LOCATIONS_DATA = {
     "Шопино": {
-        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg" if BASE_URL else None,
+        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg?v={CACHE_VER}" if BASE_URL else None,
         "caption": (
             "<b>Шопино</b>\n"
             "Посёлок с развитой инфраструктурой.\n"
@@ -78,15 +81,15 @@ LOCATIONS_DATA = {
         "presentation": f"{BASE_URL}/static/locations/shopino/presentation.pdf"
         if BASE_URL else "https://example.com/presentation-shopino.pdf",
     },
-    # добавь остальные по образцу при необходимости
+    # добавляй остальные при необходимости
 }
 
 def make_locations_inline() -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(name, callback_data=f"loc:{name}")] for name in LOCATIONS]
-    rows.append([InlineKeyboardButton("?? Вернуться в меню", callback_data="back_to_menu")])
+    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ---- ПРОЕКТЫ (inline-список + карточки) ----
+# ---- ПРОЕКТЫ ----
 PROJECTS = ["Весна 90", "Весна 98", "Весна 105", "Весна 112"]
 
 PROJECTS_DATA = {
@@ -94,14 +97,14 @@ PROJECTS_DATA = {
         "photo": f"{BASE_URL}/static/projects/vesna90/vesna90.jpg" if BASE_URL else None,
         "caption": (
             "<b>Весна 90</b>\n"
-            "Чудесный дом 90 м? с большими окнами в пол, которые наполняют кухню-гостиную солнечным светом.\n\n"
-            "• Кухня-гостиная: 24,4 м?\n"
-            "• Спальня: 16,9 м?\n"
-            "• Кабинет: 14,4 м?\n"
-            "• Детская: 14,4 м?\n"
-            "• Санузел: 5,9 м?\n"
-            "• Прихожая: 12,2 м?\n"
-            "• Крыльцо: 3,9 м?"
+            "Чудесный дом 90 м² с большими окнами в пол, которые наполняют кухню-гостиную солнечным светом.\n\n"
+            "• Кухня-гостиная: 24,4 м²\n"
+            "• Спальня: 16,9 м²\n"
+            "• Кабинет: 14,4 м²\n"
+            "• Детская: 14,4 м²\n"
+            "• Санузел: 5,9 м²\n"
+            "• Прихожая: 12,2 м²\n"
+            "• Крыльцо: 3,9 м²"
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna90/vesna90.pdf",
     },
@@ -109,15 +112,15 @@ PROJECTS_DATA = {
         "photo": f"{BASE_URL}/static/projects/vesna98/vesna98.jpg" if BASE_URL else None,
         "caption": (
             "<b>Весна 98</b>\n"
-            "Удобный и комфортный проект 98 м? с потолком 4,5 м и панорамным остеклением в обеденной зоне.\n\n"
-            "• Кухня-гостиная: 27,3 м?\n"
-            "• Спальня: 17,1 м?\n"
-            "• Детская: 14 м?\n"
-            "• Кабинет: 14 м?\n"
-            "• Санузел: 6 м?\n"
-            "• Санузел гостевой: 2,5 м?\n"
-            "• Прихожая: 13,3 м?\n"
-            "• Крыльцо: 3,5 м?"
+            "Удобный и комфортный проект 98 м² с потолком 4,5 м и панорамным остеклением в обеденной зоне.\n\n"
+            "• Кухня-гостиная: 27,3 м²\n"
+            "• Спальня: 17,1 м²\n"
+            "• Детская: 14 м²\n"
+            "• Кабинет: 14 м²\n"
+            "• Санузел: 6 м²\n"
+            "• Санузел гостевой: 2,5 м²\n"
+            "• Прихожая: 13,3 м²\n"
+            "• Крыльцо: 3,5 м²"
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna98/vesna98.pdf",
     },
@@ -126,14 +129,14 @@ PROJECTS_DATA = {
         "caption": (
             "<b>Весна 105</b>\n"
             "Увеличенная версия Весна-98 — ещё больше света и пространства.\n\n"
-            "• Кухня-гостиная: 27,5 м?\n"
-            "• Спальня: 18,6 м?\n"
-            "• Детская: 16 м?\n"
-            "• Кабинет: 16 м?\n"
-            "• Санузел: 5,9 м?\n"
-            "• Санузел гостевой: 2,7 м?\n"
-            "• Прихожая: 14,1 м?\n"
-            "• Крыльцо: 3,5 м?"
+            "• Кухня-гостиная: 27,5 м²\n"
+            "• Спальня: 18,6 м²\n"
+            "• Детская: 16 м²\n"
+            "• Кабинет: 16 м²\n"
+            "• Санузел: 5,9 м²\n"
+            "• Санузел гостевой: 2,7 м²\n"
+            "• Прихожая: 14,1 м²\n"
+            "• Крыльцо: 3,5 м²"
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna105/vesna105.pdf",
     },
@@ -142,28 +145,28 @@ PROJECTS_DATA = {
         "caption": (
             "<b>Весна 112</b>\n"
             "Те же большие окна в пол, что нравятся в Весна-90, плюс 3 спальни и 2 санузла.\n\n"
-            "• Кухня-гостиная: 28,9 м?\n"
-            "• Детская: 14,9 м?\n"
-            "• Кабинет: 14,9 м?\n"
-            "• Спальня: 19,2 м?\n"
-            "• Санузел: 5,7 м?\n"
-            "• Санузел 2: 1,6 м?\n"
-            "• Гардероб: 6,7 м?\n"
-            "• Прихожая: 15,2 м?\n"
-            "• Крыльцо: 4,9 м?"
+            "• Кухня-гостиная: 28,9 м²\n"
+            "• Детская: 14,9 м²\n"
+            "• Кабинет: 14,9 м²\n"
+            "• Спальня: 19,2 м²\n"
+            "• Санузел: 5,7 м²\n"
+            "• Санузел 2: 1,6 м²\n"
+            "• Гардероб: 6,7 м²\n"
+            "• Прихожая: 15,2 м²\n"
+            "• Крыльцо: 4,9 м²"
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna112/vesna112.pdf",
     },
 }
 
 def make_projects_inline() -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(f"?? {name}", callback_data=f"proj:{name}")] for name in PROJECTS]
-    rows.append([InlineKeyboardButton("?? Вернуться в меню", callback_data="back_to_menu")])
+    rows = [[InlineKeyboardButton(f"🏡 {name}", callback_data=f"proj:{name}")] for name in PROJECTS]
+    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
 # ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.exception("? Unhandled error", exc_info=context.error)
+    logger.exception("❗ Unhandled error", exc_info=context.error)
 
 async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветствие + баннер + главное меню (антидубль 10с)."""
@@ -175,7 +178,7 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
 
     banner_url = f"{BASE_URL}/static/welcome.jpg" if BASE_URL else None
     caption = (
-        "?? Привет! Я бот <b>MR.House</b>.\n"
+        "👋 Привет! Я бот <b>MR.House</b>.\n"
         "Помогу выбрать локацию и проект, посчитать стоимость и связать с менеджером."
     )
 
@@ -190,12 +193,12 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
 
     if not sent_banner:
         await context.bot.send_message(chat_id=chat_id,
-                                       text="?? Привет! Я бот MR.House. Готов помочь.",
+                                       text="👋 Привет! Я бот MR.House. Готов помочь.",
                                        parse_mode="HTML")
-    await context.bot.send_message(chat_id=chat_id, text="Выберите раздел ??", reply_markup=kb(MAIN_MENU))
+    await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
     context.user_data["state"] = "MAIN"
 
-# ---- ЛОКАЦИИ: список (inline) и карточка ----
+# ---- ЛОКАЦИИ ----
 async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "LOC_LIST"
     text = "-----Вы в разделе локации домов-----\nВыберите локацию:"
@@ -207,26 +210,72 @@ async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
+# Исправленный: локальный файл → URL → fallback
 async def send_location_card(chat, location_name: str, context: ContextTypes.DEFAULT_TYPE):
     data = LOCATIONS_DATA.get(location_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{location_name}».")
         return
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("?? Смотреть презентацию", url=data["presentation"])],
-        [InlineKeyboardButton("?? К списку локаций", callback_data="back_to_locs")],
-        [InlineKeyboardButton("?? Вернуться в меню", callback_data="back_to_menu")],
-    ])
-    try:
-        if data.get("photo"):
-            await context.bot.send_photo(chat_id=chat.id, photo=data["photo"],
-                                         caption=data["caption"], parse_mode="HTML", reply_markup=markup)
-        else:
-            raise RuntimeError("no photo")
-    except Exception:
-        await context.bot.send_message(chat_id=chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
 
-# ---- Проекты: список (inline) и карточка ----
+    photo_url = data.get("photo")
+    presentation = data["presentation"]
+
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
+        [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+    ])
+
+    sent = False
+    try:
+        local_path = None
+        if photo_url and BASE_URL and photo_url.startswith(f"{BASE_URL}/"):
+            rel_url = photo_url[len(BASE_URL):].lstrip("/")
+            rel_path = unquote(rel_url.split("?", 1)[0])
+            if rel_path.startswith("static/"):
+                local_path = rel_path
+
+        if local_path and os.path.isfile(local_path) and os.path.getsize(local_path) > 0:
+            with open(local_path, "rb") as f:
+                await context.bot.send_photo(
+                    chat_id=chat.id,
+                    photo=InputFile(f, filename=os.path.basename(local_path)),
+                    caption=data["caption"],
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+                sent = True
+    except Exception as e:
+        logger.warning(f"send_photo(local) failed for {location_name}: {e}")
+
+    if not sent and photo_url:
+        try:
+            await context.bot.send_photo(
+                chat_id=chat.id,
+                photo=photo_url,
+                caption=data["caption"],
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+            sent = True
+        except Exception as e:
+            logger.warning(f"send_photo(url) failed for {location_name}: {e}")
+
+    if not sent:
+        fallback_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🖼 Открыть изображение", url=photo_url or "")],
+            [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
+            [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+        ])
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=data["caption"],
+            parse_mode="HTML",
+            reply_markup=fallback_markup
+        )
+
+# ---- ПРОЕКТЫ ----
 async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "PROJ_LIST"
     text = "-----Вы в разделе проекты-----\nВыберите проект:"
@@ -238,30 +287,29 @@ async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
-# ---- Проект: сначала локальный файл, потом URL, затем fallback ----
+# Проект: локальный файл → URL → fallback
 async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
     data = PROJECTS_DATA.get(project_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
         return
 
-    photo_url = data.get("photo")  # без cache-buster
+    photo_url = data.get("photo")
     presentation = data["presentation"]
 
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("?? Смотреть презентацию", url=presentation)],
-        [InlineKeyboardButton("?? К списку проектов", callback_data="back_to_projects")],
-        [InlineKeyboardButton("?? Вернуться в меню", callback_data="back_to_menu")],
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
+        [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
 
     sent = False
 
-    # 1) Пробуем локальный файл: https://.../{BASE_URL}/static/... -> static/...
     try:
         local_path = None
         if photo_url and BASE_URL and photo_url.startswith(f"{BASE_URL}/"):
             rel_url = photo_url[len(BASE_URL):].lstrip("/")
-            rel_path = unquote(rel_url)
+            rel_path = unquote(rel_url.split("?", 1)[0])
             if rel_path.startswith("static/"):
                 local_path = rel_path
 
@@ -278,7 +326,6 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
     except Exception as e:
         logger.warning(f"send_photo(local) failed for {project_name}: {e}")
 
-    # 2) Если локально не получилось — пробуем по URL
     if not sent and photo_url:
         try:
             await context.bot.send_photo(
@@ -292,13 +339,12 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
         except Exception as e:
             logger.warning(f"send_photo(url) failed for {project_name}: {e}")
 
-    # 3) Fallback: текст + кнопка «Открыть изображение»
     if not sent:
         fallback_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("?? Открыть изображение", url=photo_url or "")],
-            [InlineKeyboardButton("?? Смотреть презентацию", url=presentation)],
-            [InlineKeyboardButton("?? К списку проектов", callback_data="back_to_projects")],
-            [InlineKeyboardButton("?? Вернуться в меню", callback_data="back_to_menu")],
+            [InlineKeyboardButton("🖼 Открыть изображение", url=photo_url or "")],
+            [InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)],
+            [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
         ])
         await context.bot.send_message(
             chat_id=chat.id,
@@ -314,32 +360,32 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "MAIN"
-    await update.message.reply_text("Главное меню ??", reply_markup=kb(MAIN_MENU))
+    await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("?? Pong! Бот работает ?")
+    await update.message.reply_text("🏓 Pong! Бот работает ✅")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
 
-    if text == "?? Локации домов":
+    if text == "📍 Локации домов":
         return await show_locations_inline(update, context)
 
-    if text == "??? Проекты":
+    if text == "🏗️ Проекты":
         return await show_projects_inline(update, context)
 
     if state == "MAIN":
         mapping = {
-            "?? Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
-            "?? Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
-            "????? Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
+            "🧮 Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
+            "🤖 Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
+            "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
         }
         if text in mapping:
             return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
-        return await update.message.reply_text("Выберите кнопку ниже ??", reply_markup=kb(MAIN_MENU))
+        return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
 
-    return  # клики по inline-кнопкам обрабатывает handle_callback
+    return  # остальное кликами по inline
 
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
@@ -405,7 +451,7 @@ application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 application.add_error_handler(error_handler)
 
-# ========= FLASK =========
+# ========= FLASK (экспортируем 'web_app') =========
 web_app = Flask(__name__)
 
 @web_app.get("/")
@@ -428,7 +474,7 @@ def set_webhook_route():
 @web_app.post("/webhook")
 def webhook():
     ensure_initialized()
-    data = flask_request.get_json(force=True, silent=False)  # используем flask_request
+    data = flask_request.get_json(force=True, silent=False)
     update = Update.de_json(data, application.bot)
     try:
         LOOP.run_until_complete(application.process_update(update))
