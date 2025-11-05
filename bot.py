@@ -19,7 +19,7 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
 
 # Принудительное обновление кэша Telegram (увидел новые картинки — увеличь версию)
-CACHE_VER = "2025-11-05-1"
+CACHE_VER = "2025-11-05-2"
 
 # ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
