@@ -68,7 +68,7 @@ LOCATIONS = [
 
 LOCATIONS_DATA = {
     "Шопино": {
-        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg" if BASE_URL else None,
+        "photo": f"{BASE_URL}/static/locations/shopino/cover.jpg?v=2" if BASE_URL else None,
         "caption": (
             "<b>Шопино</b>\n"
             "Посёлок с развитой инфраструктурой.\n"
