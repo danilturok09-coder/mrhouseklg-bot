@@ -11,11 +11,11 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
     ContextTypes, filters
 )
-from telegram.request import HTTPXRequest
+from telegram.request import HTTPXRequest  # для увеличения таймаутов
 
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
+BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")
 
 # ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +25,7 @@ logger = logging.getLogger("bot")
 LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(LOOP)
 
-# ========= PTB APP (увеличены таймауты) =========
+# ========= PTB APP =========
 tg_request = HTTPXRequest(
     connect_timeout=20.0,
     read_timeout=60.0,
@@ -41,15 +41,6 @@ def ensure_initialized() -> None:
         LOOP.run_until_complete(application.initialize())
         _initialized = True
         logger.info("✅ Telegram Application initialized")
-
-# ---------- утилита кеш-бастера ----------
-def versioned(url: str) -> str:
-    """Добавляем ?v=<timestamp> (или &v=...), чтобы обойти кеш Telegram."""
-    if not url:
-        return url
-    ts = int(time.time())
-    sep = "&" if "?" in url else "?"
-    return f"{url}{sep}v={ts}"
 
 # ========= UI =========
 MAIN_MENU = [
@@ -68,18 +59,23 @@ LOCATIONS = [
     "р-н магазина METRO", "г.Рязань", "Еловка", "КП Московский",
 ]
 
-# Храним базовые пути без версий:
+def versioned(path: str) -> str:
+    """Добавляем динамический параметр для обхода кеша Telegram"""
+    ts = int(time.time())
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}v={ts}"
+
 LOCATIONS_DATA = {
     "Шопино": {
-        "photo_path": f"{BASE_URL}/static/locations/shopino/cover.jpg" if BASE_URL else None,
-        "presentation_path": f"{BASE_URL}/static/locations/shopino/presentation.pdf" if BASE_URL else None,
+        "photo": versioned(f"{BASE_URL}/static/locations/shopino/cover.jpg") if BASE_URL else None,
         "caption": (
             "<b>Шопино</b>\n"
             "Посёлок с развитой инфраструктурой. Удобное расположение, дороги, коммуникации.\n"
             "В презентации: фото, видеообзор, планировки и описание."
         ),
+        "presentation": f"{BASE_URL}/static/locations/shopino/presentation.pdf"
+        if BASE_URL else None,
     },
-    # добавляй остальные по образцу
 }
 
 def make_locations_inline() -> InlineKeyboardMarkup:
@@ -92,37 +88,37 @@ PROJECTS = ["Весна 90", "Весна 98", "Весна 105", "Весна 112"
 
 PROJECTS_DATA = {
     "Весна 90": {
-        "photo_path": f"{BASE_URL}/static/projects/vesna90/vesna90.jpg" if BASE_URL else None,
-        "presentation_path": f"{BASE_URL}/static/projects/vesna90/vesna90.pdf" if BASE_URL else None,
+        "photo": versioned(f"{BASE_URL}/static/projects/vesna90/vesna90.jpg") if BASE_URL else None,
         "caption": (
             "<b>Весна 90</b>\n"
             "Уютный одноэтажный дом с большими окнами и просторной кухней-гостиной.\n"
             "Идеален для семьи из 3–4 человек."
         ),
+        "presentation": f"{BASE_URL}/static/projects/vesna90/vesna90.pdf",
     },
     "Весна 98": {
-        "photo_path": f"{BASE_URL}/static/projects/vesna98/vesna98.jpg" if BASE_URL else None,
-        "presentation_path": f"{BASE_URL}/static/projects/vesna98/vesna98.pdf" if BASE_URL else None,
+        "photo": versioned(f"{BASE_URL}/static/projects/vesna98/vesna98.jpg") if BASE_URL else None,
         "caption": (
             "<b>Весна 98</b>\n"
             "Комфортный проект с панорамными окнами и высоким потолком до 4,5 м."
         ),
+        "presentation": f"{BASE_URL}/static/projects/vesna98/vesna98.pdf",
     },
     "Весна 105": {
-        "photo_path": f"{BASE_URL}/static/projects/vesna105/vesna105.jpg" if BASE_URL else None,
-        "presentation_path": f"{BASE_URL}/static/projects/vesna105/vesna105.pdf" if BASE_URL else None,
+        "photo": versioned(f"{BASE_URL}/static/projects/vesna105/vesna105.jpg") if BASE_URL else None,
         "caption": (
             "<b>Весна 105</b>\n"
             "Современный дом с увеличенной площадью и просторными спальнями."
         ),
+        "presentation": f"{BASE_URL}/static/projects/vesna105/vesna105.pdf",
     },
     "Весна 112": {
-        "photo_path": f"{BASE_URL}/static/projects/vesna112/vesna112.jpg" if BASE_URL else None,
-        "presentation_path": f"{BASE_URL}/static/projects/vesna112/vesna112.pdf" if BASE_URL else None,
+        "photo": versioned(f"{BASE_URL}/static/projects/vesna112/vesna112.jpg") if BASE_URL else None,
         "caption": (
             "<b>Весна 112</b>\n"
             "Современный проект с тремя спальнями и двумя санузлами."
         ),
+        "presentation": f"{BASE_URL}/static/projects/vesna112/vesna112.pdf",
     },
 }
 
@@ -142,9 +138,7 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
         return
     context.user_data["_last_welcome_ts"] = now
 
-    banner_path = f"{BASE_URL}/static/welcome.jpg" if BASE_URL else None
-    banner_url = versioned(banner_path) if banner_path else None
-
+    banner_url = versioned(f"{BASE_URL}/static/welcome.jpg") if BASE_URL else None
     caption = (
         "👋 Привет! Я бот <b>MR.House</b>.\n"
         "Помогу выбрать локацию, проект и связаться с менеджером."
@@ -180,16 +174,13 @@ async def send_location_card(chat, loc_name: str, context: ContextTypes.DEFAULT_
         await context.bot.send_message(chat.id, f"Скоро добавим карточку для «{loc_name}».")
         return
 
-    photo_url = versioned(data.get("photo_path") or "")
-    pres_url  = versioned(data.get("presentation_path") or "")
-
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=pres_url)],
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
         [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
     try:
-        await context.bot.send_photo(chat.id, photo=photo_url, caption=data["caption"], parse_mode="HTML", reply_markup=markup)
+        await context.bot.send_photo(chat.id, photo=data["photo"], caption=data["caption"], parse_mode="HTML", reply_markup=markup)
     except Exception as e:
         logger.warning(f"Ошибка отправки фото: {e}")
         await context.bot.send_message(chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
@@ -211,26 +202,16 @@ async def send_project_card(chat, proj_name: str, context: ContextTypes.DEFAULT_
         await context.bot.send_message(chat.id, f"Скоро добавим карточку для «{proj_name}».")
         return
 
-    photo_url = versioned(data.get("photo_path") or "")
-    pres_url  = versioned(data.get("presentation_path") or "")
-
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📘 Смотреть презентацию", url=pres_url)],
+        [InlineKeyboardButton("📘 Смотреть презентацию", url=data["presentation"])],
         [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
     try:
-        await context.bot.send_photo(chat.id, photo=photo_url, caption=data["caption"], parse_mode="HTML", reply_markup=markup)
+        await context.bot.send_photo(chat.id, photo=data["photo"], caption=data["caption"], parse_mode="HTML", reply_markup=markup)
     except Exception as e:
         logger.warning(f"Ошибка отправки фото проекта: {e}")
-        # Фоллбек с кнопкой "Открыть изображение"
-        fallback = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🖼 Открыть изображение", url=photo_url)],
-            [InlineKeyboardButton("📘 Смотреть презентацию", url=pres_url)],
-            [InlineKeyboardButton("📋 К списку проектов", callback_data="back_to_projects")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
-        await context.bot.send_message(chat.id, text=data["caption"], parse_mode="HTML", reply_markup=fallback)
+        await context.bot.send_message(chat.id, text=data["caption"], parse_mode="HTML", reply_markup=markup)
 
 # ========= COMMANDS =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -244,21 +225,6 @@ async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🏓 Pong! Бот работает ✅")
 
 # ========= CALLBACKS =========
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
-    if text == "📍 Локации домов":
-        return await show_locations_inline(update, context)
-    if text == "🏗️ Проекты":
-        return await show_projects_inline(update, context)
-    mapping = {
-        "🧮 Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
-        "🤖 Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
-        "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
-    }
-    if text in mapping:
-        return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
-    return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
-
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
     data = query.data or ""
@@ -266,20 +232,24 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     if data.startswith("loc:"):
         loc = data[4:]
-        return await send_location_card(query.message.chat, loc, context)
+        await send_location_card(query.message.chat, loc, context)
+        return
 
     if data == "back_to_locs":
-        return await query.message.edit_text("Выберите локацию:", reply_markup=make_locations_inline())
+        await query.message.edit_text("Выберите локацию:", reply_markup=make_locations_inline())
+        return
 
     if data.startswith("proj:"):
         proj = data[5:]
-        return await send_project_card(query.message.chat, proj, context)
+        await send_project_card(query.message.chat, proj, context)
+        return
 
     if data == "back_to_projects":
-        return await query.message.edit_text("Выберите проект:", reply_markup=make_projects_inline())
+        await query.message.edit_text("Выберите проект:", reply_markup=make_projects_inline())
+        return
 
     if data == "back_to_menu":
-        return await send_welcome_with_photo(query_update, context)
+        await send_welcome_with_photo(query_update, context)
 
 # ========= REGISTRATION =========
 application.add_handler(CommandHandler("start", cmd_start))
@@ -287,7 +257,6 @@ application.add_handler(CommandHandler("menu", cmd_menu))
 application.add_handler(CommandHandler("ping", cmd_ping))
 application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_error_handler(error_handler)
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
 # ========= FLASK =========
 web_app = Flask(__name__)
