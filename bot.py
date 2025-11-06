@@ -63,7 +63,7 @@ MAIN_MENU = [
 def kb(rows):
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
-# ========= ЛОКАЦИИ (список, слаги, данные) =========
+# ========= ЛОКАЦИИ (список, слуги, данные) =========
 LOCATIONS = [
     "Шопино",
     "Чижовка",
@@ -91,13 +91,24 @@ LOC_SLUG = {
     "КП Московский": "kp_moskovskiy",
 }
 
-def _loc_data(name: str, body: str) -> dict:
+def _loc_data(name: str, body: str, *, has_video: bool = False, has_album: bool = False) -> dict:
+    """Базовая карточка локации (+ опционально видео и PDF-альбом)."""
     slug = LOC_SLUG[name]
     photo = f"{BASE_URL}/static/locations/{slug}/{slug}.jpg?v={CACHE_VER}" if BASE_URL else None
     pres  = f"{BASE_URL}/static/locations/{slug}/{slug}.pdf" if BASE_URL else None
-    caption = f"<b>{name}</b>\n{body}"
-    return {"photo": photo, "presentation": pres, "caption": caption}
 
+    data = {
+        "photo": photo,
+        "presentation": pres,
+        "caption": f"<b>{name}</b>\n{body}",
+    }
+    if has_video and BASE_URL:
+        data["video"] = f"{BASE_URL}/static/locations/{slug}/{slug}.mp4"
+    if has_album and BASE_URL:
+        data["album"] = f"{BASE_URL}/static/locations/{slug}/album.pdf"
+    return data
+
+# --- Твои описания (оставлены как есть) ---
 LOCATIONS_DATA = {
     "Шопино": _loc_data(
         "Шопино",
@@ -117,20 +128,13 @@ LOCATIONS_DATA = {
         "Детские сады и школы — 5–10 минут, спортивные объекты — 10–12 минут. "
         "До центра города — около 15–20 минут. Удобен для семей и тех, кто ценит быстрый доступ к сервисам."
     ),
-
-    # >>> Специальная карточка с видео вместо PDF
-    "КП Южный": {
-        "photo": f"{BASE_URL}/static/locations/{LOC_SLUG['КП Южный']}/{LOC_SLUG['КП Южный']}.jpg?v={CACHE_VER}" if BASE_URL else None,
-        "presentation": f"{BASE_URL}/static/locations/{LOC_SLUG['КП Южный']}/video.mp4" if BASE_URL else None,
-        "caption": (
-            "<b>КП Южный</b>\n"
-            "Современный посёлок окруженный лесом на 23 домовладения в шаге от города: школы и детские сады в 10–15 минутах, "
-            "крупные ТЦ — около 10 минут на автомобиле, "
-            "а до центра города — примерно 10–15 минут."
-        ),
-        "action_label": "🎬 Смотреть видео",
-    },
-
+    "КП Южный": _loc_data(
+        "КП Южный",
+        "Современный посёлок окруженный лесом на 23 домовладения в шаге от города: школы и детские сады в 10–15 минутах, "
+        "крупные ТЦ — около 10 минут на автомобиле, а до центра города — примерно 10–15 минут.",
+        has_video=True,   # 🎬 kp_yuzhniy.mp4
+        has_album=True    # 📷 album.pdf
+    ),
     "Еловка": _loc_data(
         "Еловка",
         "Спокойный посёлок для тех, кто хочет уединения, но оставаться в пределах города: "
@@ -291,23 +295,29 @@ async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
-# Локация: сначала локальный файл → затем URL → затем fallback
+# Локация: сначала локальный файл → затем URL → затем fallback (кнопки собираем динамически)
 async def send_location_card(chat, location_name: str, context: ContextTypes.DEFAULT_TYPE):
     data = LOCATIONS_DATA.get(location_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{location_name}».")
         return
 
-    photo_url = data.get("photo")
-    presentation = data["presentation"]
+    photo_url    = data.get("photo")
+    presentation = data.get("presentation")
+    video_url    = data.get("video")
+    album_url    = data.get("album")
 
-    # учитываем кастомную надпись кнопки (для КП Южный — «Смотреть видео»)
-    action_label = data.get("action_label", "📘 Смотреть презентацию")
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(action_label, url=presentation)],
-        [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
-        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-    ])
+    # Динамические кнопки
+    buttons = []
+    if presentation:
+        buttons.append([InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)])
+    if video_url:
+        buttons.append([InlineKeyboardButton("🎬 Смотреть видео", url=video_url)])
+    if album_url:
+        buttons.append([InlineKeyboardButton("📷 Фотоальбом (PDF)", url=album_url)])
+    buttons.append([InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")])
+    buttons.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
+    markup = InlineKeyboardMarkup(buttons)
 
     sent = False
     try:
@@ -345,12 +355,9 @@ async def send_location_card(chat, location_name: str, context: ContextTypes.DEF
             logger.warning(f"send_photo(url) failed for {location_name}: {e}")
 
     if not sent:
-        fallback_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🖼 Открыть изображение", url=photo_url or "")],
-            [InlineKeyboardButton(action_label, url=presentation)],
-            [InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
+        fallback_markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🖼 Открыть изображение", url=photo_url or "")]] + buttons
+        )
         await context.bot.send_message(
             chat_id=chat.id,
             text=data["caption"],
