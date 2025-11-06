@@ -314,7 +314,7 @@ async def send_location_card(chat, location_name: str, context: ContextTypes.DEF
     if video_url:
         buttons.append([InlineKeyboardButton("🎬 Смотреть видео", url=video_url)])
     if album_url:
-        buttons.append([InlineKeyboardButton("📷 Фотоальбом (PDF)", url=album_url)])
+        buttons.append([InlineKeyboardButton("📘 Смотреть презентацию", url=album_url)])
     buttons.append([InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")])
     buttons.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     markup = InlineKeyboardMarkup(buttons)
