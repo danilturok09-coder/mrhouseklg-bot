@@ -4,6 +4,7 @@ import logging
 import asyncio
 from urllib.parse import unquote
 
+import httpx
 from flask import Flask, jsonify, request as flask_request
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -14,12 +15,12 @@ from telegram.ext import (
     ContextTypes, filters
 )
 from telegram.request import HTTPXRequest
-import httpx  # ⬅️ для запросов к Groq
 
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")  # ⬅️ ключ Groq
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 
 # Принудительное обновление кэша Telegram (увидел новые картинки — увеличь версию)
 CACHE_VER = "2025-11-05-3"
@@ -102,7 +103,7 @@ def _loc_data(name: str, body: str, *, has_video: bool=False) -> dict:
     caption = f"<b>{name}</b>\n{body}"
     return {"photo": photo, "presentation": pres, "video": video, "caption": caption}
 
-# === ОПИСАНИЯ ЛОКАЦИЙ ===
+# === ТВОИ ОПИСАНИЯ ===
 LOCATIONS_DATA = {
     "Шопино": _loc_data(
         "Шопино",
@@ -126,7 +127,7 @@ LOCATIONS_DATA = {
         "КП Южный",
         "Современный посёлок окруженный лесом на 23 домовладения в шаге от города: школы и детские сады в 10–15 минутах, "
         "крупные ТЦ — около 10 минут на автомобиле, а до центра города — примерно 10–15 минут.",
-        has_video=True  # есть отдельное видео по локации
+        has_video=True  # хотим кнопку «Смотреть видео»
     ),
     "Еловка": _loc_data(
         "Еловка",
@@ -167,7 +168,7 @@ def make_locations_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= ПРОЕКТЫ =========
+# ========= ПРОЕКТЫ (как были) =========
 PROJECTS = ["Весна 90", "Весна 98", "Весна 105", "Весна 112"]
 
 PROJECTS_DATA = {
@@ -245,48 +246,52 @@ def make_projects_inline() -> InlineKeyboardMarkup:
 # ========= ИИ-СТРОИТЕЛЬ (Groq) =========
 
 BUILDER_SYSTEM_PROMPT = (
-    "Ты — дружелюбный и аккуратный строитель-консультант. "
-    "Объясняешь простым понятным языком, без снобизма и агрессии. "
-    "Говоришь о плюсах и минусах разных решений, но ничего не 'разносишь' и не высмеиваешь. "
-    "Если не уверен, честно говоришь об этом и предлагаешь несколько вариантов. "
-    "Отвечай по делу, по возможности коротко и структурировано."
+    "Ты — спокойный и профессиональный строительный консультант. "
+    "Отвечай простым и понятным языком, без жёсткой критики и оценочных суждений. "
+    "Если решение спорное, мягко укажи на нюансы и предложи несколько вариантов. "
+    "Структурируй ответы: используй короткие абзацы и маркеры списком, чтобы человеку было легко читать. "
+    "Если не хватает данных (например, нет геологии участка), так и скажи и предложи, какие данные уточнить."
 )
 
 async def ask_builder_ai(user_message: str, history: list) -> str:
-    """
-    Вызов Groq Chat Completions.
-    history — список dict'ов формата {"role": "user"/"assistant", "content": "..."}.
-    """
+    """Вызов Groq-ИИ (LLaMA 3.1 70B) с историей диалога."""
     if not GROQ_API_KEY:
         return "ИИ-консультант сейчас временно недоступен. Попробуйте позже, пожалуйста."
 
-    # Собираем историю (берем последние несколько сообщений)
     messages = [{"role": "system", "content": BUILDER_SYSTEM_PROMPT}]
-    # ограничим историю, чтобы не раздувать запрос
     if history:
         messages.extend(history[-8:])
     messages.append({"role": "user", "content": user_message})
 
+    payload = {
+        "model": "llama-3.1-70b-versatile",
+        "messages": messages,
+        "temperature": 0.4,
+        "max_tokens": 800,
+        "stream": False,
+    }
+
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {GROQ_API_KEY}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": "llama-3.1-70b-versatile",
-                    "messages": messages,
-                },
+                json=payload,
             )
-        resp.raise_for_status()
+
+        if resp.status_code != 200:
+            logger.warning(f"Groq API returned {resp.status_code}: {resp.text}")
+            return "Не получилось получить ответ от ИИ-консультанта. Возможно, сервер перегружен."
+
         data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        return content.strip()
+        return data["choices"][0]["message"]["content"].strip()
+
     except Exception as e:
         logger.warning(f"Groq API error: {e}")
-        return "Не получилось получить ответ от ИИ-консультанта. Попробуйте ещё раз чуть позже."
+        return "ИИ-консультант временно недоступен. Попробуйте чуть позже."
 
 # ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -316,9 +321,11 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
             logger.warning(f"Не смог отправить фото-баннер: {e}")
 
     if not sent_banner:
-        await context.bot.send_message(chat_id=chat_id,
-                                       text="👋 Привет! Я бот MR.House. Готов помочь.",
-                                       parse_mode="HTML")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="👋 Привет! Я бот MR.House. Готов помочь.",
+            parse_mode="HTML"
+        )
     await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
     context.user_data["state"] = "MAIN"
 
@@ -486,43 +493,45 @@ async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
+    chat_id = update.effective_chat.id
 
-    # --- запуск ИИ-строителя ---
+    # Вход в раздел ИИ
     if text == "🤖 Задать вопрос ИИ":
-        context.user_data["state"] = "AI_CHAT"
-        # очищаем/инициализируем историю диалога с ИИ
-        context.user_data["ai_history"] = []
+        context.user_data["state"] = "ASK_AI"
         await update.message.reply_text(
-            "Я — ИИ-строитель MR.House.\n\n"
-            "Задайте любой вопрос по строительству, материалам, фундаменту, планировкам и т.п. "
-            "Я отвечу как аккуратный профессиональный консультант.\n\n"
-            "Чтобы вернуться в главное меню — используйте команду /menu.",
-            reply_markup=ReplyKeyboardRemove()
+            "🧱 Я — ИИ-консультант по строительству.\n\n"
+            "Опишите свой вопрос: участок, дом, материалы, фундамент, инженерка и т.д.\n"
+            "Я постараюсь ответить простым языком и без жёсткой критики 🙂",
+            reply_markup=kb(MAIN_MENU)
         )
         return
 
-    # --- обработка сообщений, когда пользователь уже в чате с ИИ ---
-    if state == "AI_CHAT":
-        user_q = text
-        history = context.user_data.get("ai_history") or []
+    # Обработка вопросов к ИИ
+    if state == "ASK_AI" and text not in ("📍 Локации домов", "🏗️ Проекты",
+                                          "🧮 Расчёт стоимости", "👨‍💼 Связаться с менеджером"):
+        # Индикатор «пишет…»
+        try:
+            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        except Exception:
+            pass
 
-        # добавляем вопрос в историю
-        history.append({"role": "user", "content": user_q})
-        context.user_data["ai_history"] = history
+        history = context.user_data.get("builder_history", [])
 
-        # покажем "печатает..."
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        answer = await ask_builder_ai(text, history)
 
-        answer = await ask_builder_ai(user_q, history)
-
-        # добавляем ответ в историю
+        # Сохраняем историю диалога
+        history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": answer})
-        context.user_data["ai_history"] = history
+        context.user_data["builder_history"] = history[-20:]
 
-        await update.message.reply_text(answer)
+        nice_answer = (
+            "🧱 <b>Ответ ИИ-строителя</b>\n\n"
+            f"{answer}"
+        )
+        await update.message.reply_text(nice_answer, parse_mode="HTML")
         return
 
-    # --- обычные разделы ---
+    # Остальные разделы
     if text == "📍 Локации домов":
         return await show_locations_inline(update, context)
 
@@ -562,7 +571,11 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text("Выберите локацию:")
             await query.edit_message_reply_markup(reply_markup=make_locations_inline())
         except Exception:
-            await context.bot.send_message(query.message.chat_id, "Выберите локацию:", reply_markup=make_locations_inline())
+            await context.bot.send_message(
+                query.message.chat_id,
+                "Выберите локацию:",
+                reply_markup=make_locations_inline()
+            )
         context.user_data["state"] = "LOC_LIST"
         return
 
@@ -583,7 +596,11 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text("Выберите проект:")
             await query.edit_message_reply_markup(reply_markup=make_projects_inline())
         except Exception:
-            await context.bot.send_message(query.message.chat_id, "Выберите проект:", reply_markup=make_projects_inline())
+            await context.bot.send_message(
+                query.message.chat_id,
+                "Выберите проект:",
+                reply_markup=make_projects_inline()
+            )
         context.user_data["state"] = "PROJ_LIST"
         return
 
