@@ -2,8 +2,8 @@ import os
 import time
 import logging
 import asyncio
-import re
 from urllib.parse import unquote
+
 from flask import Flask, jsonify, request as flask_request
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -14,18 +14,17 @@ from telegram.ext import (
     ContextTypes, filters
 )
 from telegram.request import HTTPXRequest
+import httpx  # ⬅️ для запросов к Groq
 
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")  # ⬅️ ключ Groq
 
 # Принудительное обновление кэша Telegram (увидел новые картинки — увеличь версию)
 CACHE_VER = "2025-11-05-3"
 
-# Куда слать заявки с расчётов
-ADMIN_CHAT_ID = 759463205
-
-# ========= ЛОГИ =========
+# ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bot")
 try:
@@ -56,40 +55,6 @@ def ensure_initialized() -> None:
     LOOP.run_until_complete(application.initialize())
     _initialized = True
     logger.info("✅ Telegram Application initialized")
-
-# ========= ЦЕНЫ ДЛЯ КАЛЬКУЛЯТОРА =========
-
-# Проекты и их цена за тёплый контур (из твоего сообщения)
-PROJECT_PRICES = {
-    "Уют 90": 5_200_000,
-    "Весна 90": 5_700_000,
-    "Весна 98": 6_000_000,
-    "Весна 105": 6_200_000,
-    "Простор 110": 6_500_000,
-    "Весна 112": 6_700_000,
-    "Простор 114": 6_700_000,
-    "Простор 120": 7_000_000,
-    "Простор 130": 7_900_000,
-}
-
-# Порядок отображения в калькуляторе
-PROJECT_CHOICES = [
-    "Уют 90",
-    "Весна 90",
-    "Весна 98",
-    "Весна 105",
-    "Простор 110",
-    "Весна 112",
-    "Простор 114",
-    "Простор 120",
-    "Простор 130",
-]
-
-# Стоимость м² для индивидуальной площади
-PRICE_WARM_1F = 63_300   # одноэтажный
-PRICE_WARM_2F = 61_300   # двухэтажный
-PRICE_PREDCHIST = 15_000 # предчистовая отделка, за м²
-PRICE_COMM = 500_000     # коммуникации, фикс
 
 # ========= UI =========
 MAIN_MENU = [
@@ -161,7 +126,7 @@ LOCATIONS_DATA = {
         "КП Южный",
         "Современный посёлок окруженный лесом на 23 домовладения в шаге от города: школы и детские сады в 10–15 минутах, "
         "крупные ТЦ — около 10 минут на автомобиле, а до центра города — примерно 10–15 минут.",
-        has_video=True  # хотим кнопку «Смотреть видео»
+        has_video=True  # есть отдельное видео по локации
     ),
     "Еловка": _loc_data(
         "Еловка",
@@ -202,7 +167,7 @@ def make_locations_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= ПРОЕКТЫ (как были для карточек) =========
+# ========= ПРОЕКТЫ =========
 PROJECTS = ["Весна 90", "Весна 98", "Весна 105", "Весна 112"]
 
 PROJECTS_DATA = {
@@ -277,6 +242,52 @@ def make_projects_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
+# ========= ИИ-СТРОИТЕЛЬ (Groq) =========
+
+BUILDER_SYSTEM_PROMPT = (
+    "Ты — дружелюбный и аккуратный строитель-консультант. "
+    "Объясняешь простым понятным языком, без снобизма и агрессии. "
+    "Говоришь о плюсах и минусах разных решений, но ничего не 'разносишь' и не высмеиваешь. "
+    "Если не уверен, честно говоришь об этом и предлагаешь несколько вариантов. "
+    "Отвечай по делу, по возможности коротко и структурировано."
+)
+
+async def ask_builder_ai(user_message: str, history: list) -> str:
+    """
+    Вызов Groq Chat Completions.
+    history — список dict'ов формата {"role": "user"/"assistant", "content": "..."}.
+    """
+    if not GROQ_API_KEY:
+        return "ИИ-консультант сейчас временно недоступен. Попробуйте позже, пожалуйста."
+
+    # Собираем историю (берем последние несколько сообщений)
+    messages = [{"role": "system", "content": BUILDER_SYSTEM_PROMPT}]
+    # ограничим историю, чтобы не раздувать запрос
+    if history:
+        messages.extend(history[-8:])
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.1-70b-versatile",
+                    "messages": messages,
+                },
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        return content.strip()
+    except Exception as e:
+        logger.warning(f"Groq API error: {e}")
+        return "Не получилось получить ответ от ИИ-консультанта. Попробуйте ещё раз чуть позже."
+
 # ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("❗ Unhandled error", exc_info=context.error)
@@ -305,388 +316,11 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
             logger.warning(f"Не смог отправить фото-баннер: {e}")
 
     if not sent_banner:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="👋 Привет! Я бот MR.House. Готов помочь.",
-            parse_mode="HTML"
-        )
+        await context.bot.send_message(chat_id=chat_id,
+                                       text="👋 Привет! Я бот MR.House. Готов помочь.",
+                                       parse_mode="HTML")
     await context.bot.send_message(chat_id=chat_id, text="Выберите раздел 👇", reply_markup=kb(MAIN_MENU))
     context.user_data["state"] = "MAIN"
-
-# ========= КАЛЬКУЛЯТОР: ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =========
-
-def parse_area_from_name(name: str) -> int | None:
-    """Достаём число из названия проекта (Уют 90 → 90)."""
-    m = re.search(r"(\d+)", name)
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
-
-def format_money(x: int) -> str:
-    return f"{x:,}".replace(",", " ")
-
-def build_calc_text(calc: dict) -> str:
-    """Собираем красивый текст расчёта."""
-    mode = calc.get("mode")
-    area = calc.get("area")
-    floors = calc.get("floors")
-    include_pred = calc.get("include_pred", False)
-    include_comm = calc.get("include_comm", False)
-    warm_price = calc.get("warm_price", 0)
-    pred_price = calc.get("pred_price", 0)
-    comm_price = calc.get("comm_price", 0)
-    total = calc.get("total", 0)
-
-    lines = []
-    lines.append("🧮 <b>Предварительный расчёт</b>\n")
-
-    if mode == "standard":
-        proj = calc.get("project_name")
-        lines.append(f"🏡 Проект: <b>{proj}</b>")
-        if area:
-            lines.append(f"Площадь: ~{area} м²")
-    else:
-        lines.append("📐 Индивидуальная площадь")
-        if area:
-            lines.append(f"Площадь: <b>{area} м²</b>")
-        if floors:
-            if floors == 1:
-                lines.append("Этажность: <b>1 этаж</b>")
-            else:
-                lines.append("Этажность: <b>2 этажа</b>")
-
-    lines.append("")  # пустая строка
-
-    lines.append(f"🔥 Тёплый контур: <b>{format_money(warm_price)} ₽</b>")
-
-    if include_pred:
-        lines.append(f"🎨 Предчистовая отделка: <b>{format_money(pred_price)} ₽</b>")
-    else:
-        lines.append("🎨 Предчистовая отделка: не включена")
-
-    if include_comm:
-        lines.append(f"🔌 Коммуникации (газ, свет, вода, канализация): <b>{format_money(comm_price)} ₽</b>")
-    else:
-        lines.append("🔌 Коммуникации: не включены")
-
-    lines.append("")
-    lines.append(f"💰 <b>ИТОГО: {format_money(total)} ₽</b>")
-    lines.append("")
-    lines.append("Расчёт предварительный. Точный бюджет зависит от участка, геологии и выбранных решений.")
-
-    return "\n".join(lines)
-
-async def send_calc_to_admin(update: Update, calc: dict, contacts_text: str | None, context: ContextTypes.DEFAULT_TYPE):
-    """Отправляем тебе в личку заявку с расчётом."""
-    user = update.effective_user
-    uid = user.id
-    uname = f"@{user.username}" if user.username else "—"
-    name = f"{user.first_name or ''} {user.last_name or ''}".strip() or "—"
-
-    text = [
-        "📩 <b>Новая заявка с расчёта</b>",
-        "",
-        f"Пользователь: {name}",
-        f"Username: {uname}",
-        f"User ID: <code>{uid}</code>",
-    ]
-    if contacts_text:
-        text.append(f"Контакты (из формы): {contacts_text}")
-    text.append("")
-    text.append(build_calc_text(calc))
-
-    await context.bot.send_message(
-        chat_id=ADMIN_CHAT_ID,
-        text="\n".join(text),
-        parse_mode="HTML"
-    )
-
-# ========= КАЛЬКУЛЯТОР: ЛОГИКА =========
-
-async def start_calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Запуск мастера расчёта."""
-    context.user_data["state"] = "CALC_PROJECT_OR_CUSTOM"
-    context.user_data["calc"] = {}
-
-    keyboard = [
-        ["🏡 Выбрать типовой проект"],
-        ["📐 Указать свою площадь"],
-        ["🔙 В главное меню"],
-    ]
-    await update.message.reply_text(
-        "🧮 Давайте посчитаем ориентировочную стоимость дома.\n\n"
-        "Сначала выберите вариант:",
-        reply_markup=kb(keyboard)
-    )
-
-async def handle_calc_text(update: Update, context: ContextTypes.DEFAULT_TYPE, state: str):
-    """Обработка текстов во всех состояниях калькулятора."""
-    text = (update.message.text or "").strip()
-    calc = context.user_data.get("calc", {}) or {}
-    has_contacts = context.user_data.get("has_contacts", False)
-
-    # --- шаг 1: выбор «типовой / своя площадь» ---
-    if state == "CALC_PROJECT_OR_CUSTOM":
-        if text == "🏡 Выбрать типовой проект":
-            calc["mode"] = "standard"
-            context.user_data["calc"] = calc
-            context.user_data["state"] = "CALC_CHOOSE_PROJECT"
-
-            rows = [[name] for name in PROJECT_CHOICES]
-            rows.append(["🔙 В главное меню"])
-            await update.message.reply_text(
-                "Выберите проект из списка:",
-                reply_markup=kb(rows)
-            )
-            return
-
-        if text == "📐 Указать свою площадь":
-            calc["mode"] = "custom"
-            context.user_data["calc"] = calc
-            context.user_data["state"] = "CALC_CUSTOM_AREA"
-
-            await update.message.reply_text(
-                "Введите желаемую площадь дома в м² (только число, например: 120):",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return
-
-        if text == "🔙 В главное меню":
-            context.user_data["state"] = "MAIN"
-            await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
-            return
-
-        # любое другое — мягко повторить
-        await update.message.reply_text(
-            "Пожалуйста, выберите один из вариантов кнопками ниже 👇",
-            reply_markup=kb([
-                ["🏡 Выбрать типовой проект"],
-                ["📐 Указать свою площадь"],
-                ["🔙 В главное меню"],
-            ])
-        )
-        return
-
-    # --- шаг 2: выбор типового проекта ---
-    if state == "CALC_CHOOSE_PROJECT":
-        if text == "🔙 В главное меню":
-            context.user_data["state"] = "MAIN"
-            await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
-            return
-
-        if text not in PROJECT_PRICES:
-            rows = [[name] for name in PROJECT_CHOICES]
-            rows.append(["🔙 В главное меню"])
-            await update.message.reply_text(
-                "Выберите проект из списка кнопками ниже 👇",
-                reply_markup=kb(rows)
-            )
-            return
-
-        calc["mode"] = "standard"
-        calc["project_name"] = text
-        calc["area"] = parse_area_from_name(text)
-        context.user_data["calc"] = calc
-        context.user_data["state"] = "CALC_OPTIONS"
-
-        # Переходим к выбору опций
-        await update.message.reply_text(
-            "Что включить в расчёт?\n\n"
-            "Тёплый контур входит всегда.\n"
-            "Выберите комбинацию опций:",
-            reply_markup=kb([
-                ["Только тёплый контур"],
-                ["Тёплый контур + предчистовая"],
-                ["Тёплый контур + коммуникации"],
-                ["Тёплый контур + предчистовая + коммуникации"],
-                ["🔙 В главное меню"],
-            ])
-        )
-        return
-
-    # --- шаг 2 для custom: ввод площади ---
-    if state == "CALC_CUSTOM_AREA":
-        # можно вернуться в меню командой /menu, но кнопок нет — ок
-        try:
-            area = int(text.replace(" ", ""))
-            if area <= 0:
-                raise ValueError
-        except ValueError:
-            await update.message.reply_text(
-                "Пожалуйста, введите площадь числом, например: 120"
-            )
-            return
-
-        calc["area"] = area
-        context.user_data["calc"] = calc
-        context.user_data["state"] = "CALC_CUSTOM_FLOORS"
-
-        await update.message.reply_text(
-            f"Площадь принята: {area} м².\n\n"
-            "Выберите этажность:",
-            reply_markup=kb([
-                ["1 этаж"],
-                ["2 этажа"],
-                ["🔙 В главное меню"],
-            ])
-        )
-        return
-
-    # --- шаг 3 для custom: выбор этажности ---
-    if state == "CALC_CUSTOM_FLOORS":
-        if text == "🔙 В главное меню":
-            context.user_data["state"] = "MAIN"
-            await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
-            return
-
-        if text not in ("1 этаж", "2 этажа"):
-            await update.message.reply_text(
-                "Пожалуйста, выберите этажность кнопками ниже 👇",
-                reply_markup=kb([
-                    ["1 этаж"],
-                    ["2 этажа"],
-                    ["🔙 В главное меню"],
-                ])
-            )
-            return
-
-        floors = 1 if text == "1 этаж" else 2
-        calc["mode"] = "custom"
-        calc["floors"] = floors
-        context.user_data["calc"] = calc
-        context.user_data["state"] = "CALC_OPTIONS"
-
-        await update.message.reply_text(
-            "Что включить в расчёт?\n\n"
-            "Тёплый контур входит всегда.\n"
-            "Выберите комбинацию опций:",
-            reply_markup=kb([
-                ["Только тёплый контур"],
-                ["Тёплый контур + предчистовая"],
-                ["Тёплый контур + коммуникации"],
-                ["Тёплый контур + предчистовая + коммуникации"],
-                ["🔙 В главное меню"],
-            ])
-        )
-        return
-
-    # --- шаг с опциями (общий для standard и custom) ---
-    if state == "CALC_OPTIONS":
-        if text == "🔙 В главное меню":
-            context.user_data["state"] = "MAIN"
-            await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
-            return
-
-        combo_map = {
-            "Только тёплый контур": (False, False),
-            "Тёплый контур + предчистовая": (True, False),
-            "Тёплый контур + коммуникации": (False, True),
-            "Тёплый контур + предчистовая + коммуникации": (True, True),
-        }
-        if text not in combo_map:
-            await update.message.reply_text(
-                "Пожалуйста, выберите вариант кнопками ниже 👇",
-                reply_markup=kb([
-                    ["Только тёплый контур"],
-                    ["Тёплый контур + предчистовая"],
-                    ["Тёплый контур + коммуникации"],
-                    ["Тёплый контур + предчистовая + коммуникации"],
-                    ["🔙 В главное меню"],
-                ])
-            )
-            return
-
-        include_pred, include_comm = combo_map[text]
-        calc["include_pred"] = include_pred
-        calc["include_comm"] = include_comm
-
-        # --- считаем деньги ---
-        area = calc.get("area")
-        mode = calc.get("mode")
-
-        warm_price = 0
-        if mode == "standard":
-            pname = calc.get("project_name")
-            warm_price = PROJECT_PRICES.get(pname, 0)
-        else:
-            if area and calc.get("floors") == 1:
-                warm_price = area * PRICE_WARM_1F
-            elif area and calc.get("floors") == 2:
-                warm_price = area * PRICE_WARM_2F
-
-        pred_price = area * PRICE_PREDCHIST if (area and include_pred) else 0
-        comm_price = PRICE_COMM if include_comm else 0
-        total = warm_price + pred_price + comm_price
-
-        calc["warm_price"] = warm_price
-        calc["pred_price"] = pred_price
-        calc["comm_price"] = comm_price
-        calc["total"] = total
-        context.user_data["calc"] = calc
-
-        # --- проверка контактов ---
-        if not has_contacts:
-            # просим контакты, расчёт пока не показываем
-            context.user_data["state"] = "CALC_CONTACTS"
-            await update.message.reply_text(
-                "Чтобы показать подробный расчёт, пожалуйста, напишите, как к вам обращаться "
-                "и номер телефона (или удобный способ связи):\n\n"
-                "Например: «Иван, +7 999 123-45-67»",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return
-
-        # контакты уже есть — сразу показываем расчёт
-        context.user_data["state"] = "MAIN"
-        await update.message.reply_text(
-            build_calc_text(calc),
-            parse_mode="HTML",
-            reply_markup=kb(MAIN_MENU)
-        )
-
-        contacts_text = context.user_data.get("contacts_text")
-        await send_calc_to_admin(update, calc, contacts_text, context)
-        return
-
-    # --- шаг: ввод контактов (первый раз) ---
-    if state == "CALC_CONTACTS":
-        contacts_text = text.strip()
-        if len(contacts_text) < 3:
-            await update.message.reply_text(
-                "Пожалуйста, напишите имя и телефон или удобный способ связи 🙂"
-            )
-            return
-
-        # сохраняем контакты и флаг, что уже оставил
-        context.user_data["has_contacts"] = True
-        context.user_data["contacts_text"] = contacts_text
-
-        calc = context.user_data.get("calc", {}) or {}
-        if not calc:
-            # На всякий случай — если что-то пошло не так
-            context.user_data["state"] = "MAIN"
-            await update.message.reply_text(
-                "Спасибо! Контакты записал. Попробуйте запустить расчёт ещё раз через кнопку «🧮 Расчёт стоимости».",
-                reply_markup=kb(MAIN_MENU)
-            )
-            return
-
-        # показываем расчёт
-        context.user_data["state"] = "MAIN"
-        await update.message.reply_text(
-            "Спасибо! Контакты записал.\nВот ваш предварительный расчёт 👇",
-            reply_markup=kb(MAIN_MENU)
-        )
-        await update.message.reply_text(
-            build_calc_text(calc),
-            parse_mode="HTML"
-        )
-
-        await send_calc_to_admin(update, calc, contacts_text, context)
-        return
 
 # ========= ЛОКАЦИИ (UI) =========
 async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -853,33 +487,58 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
 
-    # Глобальные кнопки, которые работают из любого состояния
+    # --- запуск ИИ-строителя ---
+    if text == "🤖 Задать вопрос ИИ":
+        context.user_data["state"] = "AI_CHAT"
+        # очищаем/инициализируем историю диалога с ИИ
+        context.user_data["ai_history"] = []
+        await update.message.reply_text(
+            "Я — ИИ-строитель MR.House.\n\n"
+            "Задайте любой вопрос по строительству, материалам, фундаменту, планировкам и т.п. "
+            "Я отвечу как аккуратный профессиональный консультант.\n\n"
+            "Чтобы вернуться в главное меню — используйте команду /menu.",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+
+    # --- обработка сообщений, когда пользователь уже в чате с ИИ ---
+    if state == "AI_CHAT":
+        user_q = text
+        history = context.user_data.get("ai_history") or []
+
+        # добавляем вопрос в историю
+        history.append({"role": "user", "content": user_q})
+        context.user_data["ai_history"] = history
+
+        # покажем "печатает..."
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+        answer = await ask_builder_ai(user_q, history)
+
+        # добавляем ответ в историю
+        history.append({"role": "assistant", "content": answer})
+        context.user_data["ai_history"] = history
+
+        await update.message.reply_text(answer)
+        return
+
+    # --- обычные разделы ---
     if text == "📍 Локации домов":
         return await show_locations_inline(update, context)
 
     if text == "🏗️ Проекты":
         return await show_projects_inline(update, context)
 
-    if text == "🧮 Расчёт стоимости":
-        return await start_calc(update, context)
-
-    # Калькулятор: свои состояния
-    if state and state.startswith("CALC_"):
-        return await handle_calc_text(update, context, state)
-
-    # Обычное поведение в главном меню
     if state == "MAIN":
         mapping = {
-            "🤖 Задать вопрос ИИ": "Напишите вопрос, я постараюсь помочь (пока заглушка).",
+            "🧮 Расчёт стоимости": "Введите желаемую площадь и бюджет (пока заглушка).",
             "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
-            # "🧮 Расчёт стоимости" здесь больше не обрабатываем текстом, только через мастер
         }
         if text in mapping:
             return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
         return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
 
-    # Остальные состояния (LOC_LIST / PROJ_LIST) — текст не трогаем
-    return
+    return  # остальное — кликами по inline
 
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
@@ -903,11 +562,7 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text("Выберите локацию:")
             await query.edit_message_reply_markup(reply_markup=make_locations_inline())
         except Exception:
-            await context.bot.send_message(
-                query.message.chat_id,
-                "Выберите локацию:",
-                reply_markup=make_locations_inline()
-            )
+            await context.bot.send_message(query.message.chat_id, "Выберите локацию:", reply_markup=make_locations_inline())
         context.user_data["state"] = "LOC_LIST"
         return
 
@@ -928,11 +583,7 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text("Выберите проект:")
             await query.edit_message_reply_markup(reply_markup=make_projects_inline())
         except Exception:
-            await context.bot.send_message(
-                query.message.chat_id,
-                "Выберите проект:",
-                reply_markup=make_projects_inline()
-            )
+            await context.bot.send_message(query.message.chat_id, "Выберите проект:", reply_markup=make_projects_inline())
         context.user_data["state"] = "PROJ_LIST"
         return
 
