@@ -249,14 +249,15 @@ BUILDER_SYSTEM_PROMPT = (
     "Ты — спокойный и профессиональный строительный консультант. "
     "Отвечай простым и понятным языком, без жёсткой критики и оценочных суждений. "
     "Если решение спорное, мягко укажи на нюансы и предложи несколько вариантов. "
-    "Структурируй ответы: используй короткие абзацы и маркеры списком, чтобы человеку было легко читать. "
-    "Если не хватает данных (например, нет геологии участка), так и скажи и предложи, какие данные уточнить."
+    "Структурируй ответы: используй короткие абзацы и списки, чтобы человеку было легко читать. "
+    "Если не хватает данных (например, геология участка, тип грунта, конструктив дома), "
+    "скажи об этом и предложи, что уточнить."
 )
 
 async def ask_builder_ai(user_message: str, history: list) -> str:
-    """Вызов Groq-ИИ (LLaMA 3.1 70B) с историей диалога."""
+    """Вызов Groq (новая модель llama-3.1-8b-instant)."""
     if not GROQ_API_KEY:
-        return "ИИ-консультант сейчас временно недоступен. Попробуйте позже, пожалуйста."
+        return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте позже."
 
     messages = [{"role": "system", "content": BUILDER_SYSTEM_PROMPT}]
     if history:
@@ -264,15 +265,15 @@ async def ask_builder_ai(user_message: str, history: list) -> str:
     messages.append({"role": "user", "content": user_message})
 
     payload = {
-        "model": "llama-3.1-70b-versatile",
+        "model": "llama-3.1-8b-instant",  # ← новая рабочая модель
         "messages": messages,
         "temperature": 0.4,
-        "max_tokens": 800,
+        "max_tokens": 900,
         "stream": False,
     }
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -284,14 +285,19 @@ async def ask_builder_ai(user_message: str, history: list) -> str:
 
         if resp.status_code != 200:
             logger.warning(f"Groq API returned {resp.status_code}: {resp.text}")
-            return "Не получилось получить ответ от ИИ-консультанта. Возможно, сервер перегружен."
+            return (
+                "Не удалось получить ответ от ИИ-строителя. "
+                "Возможно, сервер перегружен. Попробуйте позже."
+            )
 
         data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        answer = data["choices"][0]["message"]["content"].strip()
+
+        return answer
 
     except Exception as e:
         logger.warning(f"Groq API error: {e}")
-        return "ИИ-консультант временно недоступен. Попробуйте чуть позже."
+        return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте чуть позже."
 
 # ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
