@@ -243,54 +243,60 @@ def make_projects_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= ИИ-СТРОИТЕЛЬ (Groq) =========
+# ========= ИИ-СТРОИТЕЛЬ (Groq, прокачанная версия) =========
 
 BUILDER_SYSTEM_PROMPT = (
     "Ты — спокойный, вежливый и профессиональный строительный консультант.\n\n"
     "Контекст:\n"
-    "- Частное домостроение в России.\n"
+    "- Частное домостроение в России (Калуга и похожие регионы по климату).\n"
     "- Клиенты строят дома под постоянное проживание или как дачу.\n"
     "- Частые решения: монолитная плита, лента, сваи, газобетон, керамоблок, каркас, металлочерепица, мягкая кровля.\n\n"
-    "Как работать с диалогом:\n"
-    "- Всегда учитывай предыдущие сообщения пользователя (контекст), не начинай ответ с нуля.\n"
-    "- Если информации мало — укажи, чего не хватает, и задай уточняющие вопросы.\n\n"
+    "Как мыслить (внутренне):\n"
+    "- Сначала мысленно разложи задачу на пункты: участок, грунты, фундамент, стены, перекрытия, кровля, инженерка.\n"
+    "- Оцени риски, слабые места и где не хватает данных.\n"
+    "- Только после этого формируй финальный ответ для пользователя.\n"
+    "- Свои внутренние рассуждения не показывай, пользователю давай уже переваренный вывод.\n\n"
     "Тон общения:\n"
-    "- Простой, спокойный и дружелюбный.\n"
-    "- Без резкой критики и запугивания.\n\n"
-    "Формат ответа:\n"
-    "1) Краткий вывод — 2–4 предложения.\n"
-    "2) Подробности по пунктам в виде списка '- ':\n"
-    "   - Фундамент (если относится к вопросу)\n"
-    "   - Стены / перекрытия / крыша (если относятся)\n"
-    "   - Теплотехника: утепление, точка росы, вентиляция (если нужно)\n"
-    "   - Инженерные системы (если вопрос про коммуникации)\n"
-    "3) На что обратить внимание — 3–7 пунктов\n"
-    "4) Что уточнить — 3–5 вопросов\n\n"
-    "Не используй HTML и Markdown. Только обычный текст и списки '- '.\n"
+    "- Простой, человеческий, без пафоса.\n"
+    "- Не ругай и не высмеивай решения пользователя.\n"
+    "- Если что-то сделано странно — мягко объясни риски и предложи альтернативы.\n\n"
+    "Формат ответа (строго придерживайся):\n"
+    "1) Краткий вывод — 2–4 предложения: суть ситуации и общий совет.\n"
+    "2) По пунктам:\n"
+    "   - Фундамент: только если относится к вопросу.\n"
+    "   - Стены / перекрытия / крыша: по теме вопроса.\n"
+    "   - Теплотехника: утепление, точка росы, вентиляция — если это важно здесь.\n"
+    "   - Инженерные системы: если вопрос про коммуникации.\n"
+    "3) На что обратить внимание — 3–7 коротких пунктов.\n"
+    "4) Что уточнить — 3–5 конкретных вопросов пользователю, чтобы дальше помочь ещё точнее.\n\n"
+    "Всегда учитывай предыдущие сообщения пользователя в диалоге. "
+    "Если информации мало, честно скажи об этом и объясни, чего не хватает.\n\n"
+    "Не используй HTML и Markdown, только обычный текст и списки '- '.\n"
 )
 
 async def ask_builder_ai(user_message: str, history: list) -> str:
-    """Groq LLaMA 3.1 8B Instant (бесплатная стабильная модель)."""
+    """Groq LLaMA 3.1 8B Instant с акцентом на рассуждения и контекст."""
     if not GROQ_API_KEY:
         return "ИИ-консультант временно недоступен. Попробуйте позже."
 
-    # Формируем историю диалога
     messages = [{"role": "system", "content": BUILDER_SYSTEM_PROMPT}]
+
+    # аккуратно подмешиваем историю диалога (до ~7 последних обменов)
     if history:
-        # подаём прошлые реплики — важно для памяти
         messages.extend(history[-14:])
+
     messages.append({"role": "user", "content": user_message})
 
     payload = {
-        "model": "llama-3.1-8b-instant",   # ← СТАБИЛЬНАЯ бесплатная модель Groq
+        "model": "llama-3.1-8b-instant",   # стабильная бесплатная модель
         "messages": messages,
-        "temperature": 0.4,
+        "temperature": 0.35,
         "max_tokens": 950,
         "stream": False,
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=35.0) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -302,12 +308,14 @@ async def ask_builder_ai(user_message: str, history: list) -> str:
 
         if resp.status_code != 200:
             logger.warning(f"Groq API returned {resp.status_code}: {resp.text}")
-            return "Не удалось получить ответ от ИИ-строителя. Попробуйте чуть позже."
+            return (
+                "Не удалось получить ответ от ИИ-строителя. "
+                "Возможно, сервер перегружен. Попробуйте чуть позже."
+            )
 
         data = resp.json()
         answer = data["choices"][0]["message"]["content"].strip()
 
-        # Ограничение длины (на всякий случай)
         if len(answer) > 5000:
             answer = answer[:5000] + "\n\n(Ответ укорочен для Telegram)"
 
@@ -315,7 +323,7 @@ async def ask_builder_ai(user_message: str, history: list) -> str:
 
     except Exception as e:
         logger.warning(f"Groq API error: {e}")
-        return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте позже."
+        return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте немного позже."
 
 # ========= HELPERS =========
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -524,8 +532,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["state"] = "ASK_AI"
         await update.message.reply_text(
             "🧱 Я — ИИ-консультант по строительству.\n\n"
-            "Опишите свой вопрос: участок, дом, материалы, фундамент, инженерка и т.д.\n"
-            "Я постараюсь ответить простым языком и без жёсткой критики 🙂",
+            "Можешь задавать несколько вопросов подряд: я буду помнить наш диалог в этом разделе.\n"
+            "Напиши про участок, дом, фундамент, материалы или инженерку — разберём по пунктам.",
             reply_markup=kb(MAIN_MENU)
         )
         return
@@ -543,7 +551,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         answer = await ask_builder_ai(text, history)
 
-        # Сохраняем историю диалога
+        # Сохраняем историю диалога (user + assistant)
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": answer})
         context.user_data["builder_history"] = history[-20:]
@@ -618,6 +626,9 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
     if data == "back_to_projects":
         try:
             await query.edit_message_text("Выберите проект:")
+        except Exception:
+            pass
+        try:
             await query.edit_message_reply_markup(reply_markup=make_projects_inline())
         except Exception:
             await context.bot.send_message(
