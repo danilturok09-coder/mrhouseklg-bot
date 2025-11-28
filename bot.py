@@ -246,7 +246,6 @@ def make_projects_inline() -> InlineKeyboardMarkup:
 
 # ========= КАЛЬКУЛЯТОР СТОИМОСТИ =========
 
-# цены за тёплый контур по проектам
 COST_PROJECTS = {
     "uyut90":       {"name": "Уют 90",       "area": 90,  "price": 5_200_000},
     "vesna90":      {"name": "Весна 90",     "area": 90,  "price": 5_700_000},
@@ -259,10 +258,10 @@ COST_PROJECTS = {
     "prostor130":   {"name": "Простор 130",  "area": 130, "price": 7_900_000},
 }
 
-COST_PER_M2_ONE_FLOOR = 63_300    # тёплый контур, 1 этаж
-COST_PER_M2_TWO_FLOORS = 61_300   # тёплый контур, 2 этажа
-COST_PRED_PER_M2 = 15_000         # предчистовая
-COST_COMMUNICATIONS = 500_000     # газ, свет, вода, канализация
+COST_PER_M2_ONE_FLOOR = 63_300
+COST_PER_M2_TWO_FLOORS = 61_300
+COST_PRED_PER_M2 = 15_000
+COST_COMMUNICATIONS = 500_000
 
 def fmt_rub(value: int) -> str:
     return f"{value:,.0f}".replace(",", " ") + " ₽"
@@ -677,7 +676,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get("state", "MAIN")
     chat_id = update.effective_chat.id
 
-    # ==== Вход в раздел ИИ ====
+    # ==== ИИ ====
     if text == "🤖 Задать вопрос ИИ":
         context.user_data["state"] = "ASK_AI"
         await update.message.reply_text(
@@ -693,12 +692,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ==== Вопросы к ИИ ====
     if state == "ASK_AI" and text not in (
         "📍 Локации домов", "🏗️ Проекты",
         "🧮 Расчёт стоимости", "👨‍💼 Связаться с менеджером"
     ):
-        # логируем вопрос
         try:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             line = f"{ts} | chat_id={chat_id} | {text}\n"
@@ -837,19 +834,28 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
         if mode == "project":
             context.user_data["state"] = "COST_PROJECT"
-            await query.edit_message_text("Выберите проект для расчёта:")
-            await query.edit_message_reply_markup(reply_markup=make_cost_projects_markup())
+            try:
+                await query.edit_message_text(
+                    "Выберите проект для расчёта:",
+                    reply_markup=make_cost_projects_markup()
+                )
+            except Exception:
+                await context.bot.send_message(
+                    chat_id=chat.id,
+                    text="Выберите проект для расчёта:",
+                    reply_markup=make_cost_projects_markup()
+                )
         elif mode == "custom":
             context.user_data["state"] = "COST_WAIT_AREA"
             try:
                 await query.edit_message_text(
-                    "Введите желаемую площадь дома в м² (например, 120)."
+                    "Введите желаемую площадь дома в м² (например, 120).",
+                    reply_markup=None
                 )
-                await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 await context.bot.send_message(
-                    chat_id=chat.id,
-                    text="Введите желаемую площадь дома в м² (например, 120)."
+                    chat.id,
+                    "Введите желаемую площадь дома в м² (например, 120)."
                 )
         return
 
@@ -878,9 +884,9 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
         try:
             await query.edit_message_text(
-                f"Проект: {info['name']} ({info['area']} м²)\n\nВыберите комплектацию:"
+                f"Проект: {info['name']} ({info['area']} м²)\n\nВыберите комплектацию:",
+                reply_markup=markup
             )
-            await query.edit_message_reply_markup(reply_markup=markup)
         except Exception:
             await context.bot.send_message(
                 chat.id,
@@ -908,9 +914,9 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
         try:
             await query.edit_message_text(
-                f"Этажность: {floors}.\n\nВыберите комплектацию:"
+                f"Этажность: {floors}.\n\nВыберите комплектацию:",
+                reply_markup=markup
             )
-            await query.edit_message_reply_markup(reply_markup=markup)
         except Exception:
             await context.bot.send_message(
                 chat.id,
@@ -934,9 +940,9 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
         try:
             await query.edit_message_text(
-                "Добавить коммуникации (газ, свет, вода, канализация) за 500 000 ₽?"
+                "Добавить коммуникации (газ, свет, вода, канализация) за 500 000 ₽?",
+                reply_markup=markup
             )
-            await query.edit_message_reply_markup(reply_markup=markup)
         except Exception:
             await context.bot.send_message(
                 chat.id,
@@ -959,9 +965,9 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             try:
                 await query.edit_message_text(
                     "Чтобы показать ориентировочный расчёт, напишите, пожалуйста, как к вам обращаться "
-                    "и номер телефона одним сообщением (например: «Иван, +7 999 123-45-67»)."
+                    "и номер телефона одним сообщением (например: «Иван, +7 999 123-45-67»).",
+                    reply_markup=None
                 )
-                await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 await context.bot.send_message(
                     chat.id,
@@ -970,7 +976,6 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
                 )
             return
 
-        # контакты уже есть — сразу показываем расчёт
         result_text = build_cost_result_text(cost)
         await context.bot.send_message(chat.id, result_text, parse_mode="HTML")
 
@@ -988,7 +993,10 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
     if data.startswith("loc:"):
         loc = data[4:]
         try:
-            await query.edit_message_text(f"Локация {loc}:")
+            await query.edit_message_text(
+                f"Локация {loc}:",
+                reply_markup=None
+            )
         except Exception:
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -998,8 +1006,10 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "back_to_locs":
         try:
-            await query.edit_message_text("Выберите локацию:")
-            await query.edit_message_reply_markup(reply_markup=make_locations_inline())
+            await query.edit_message_text(
+                "Выберите локацию:",
+                reply_markup=make_locations_inline()
+            )
         except Exception:
             await context.bot.send_message(
                 query.message.chat_id,
@@ -1013,7 +1023,10 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
     if data.startswith("proj:"):
         proj = data[5:]
         try:
-            await query.edit_message_text(f"Проект {proj}:")
+            await query.edit_message_text(
+                f"Проект {proj}:",
+                reply_markup=None
+            )
         except Exception:
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -1023,8 +1036,10 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "back_to_projects":
         try:
-            await query.edit_message_text("Выберите проект:")
-            await query.edit_message_reply_markup(reply_markup=make_projects_inline())
+            await query.edit_message_text(
+                "Выберите проект:",
+                reply_markup=make_projects_inline()
+            )
         except Exception:
             await context.bot.send_message(
                 query.message.chat_id,
