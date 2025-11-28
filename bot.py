@@ -673,7 +673,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "📞 <b>Связь с менеджером MR.House</b>\n\n"
             "Вы можете написать или позвонить лично:\n"
-            "👤 Антон\n"
+            "👤 Данил\n"
             "📱 +7 (910) 864-07-37\n\n"
             "Также менеджер свяжется с вами, если вы оставляли контакты в расчёте стоимости.",
             parse_mode="HTML",
