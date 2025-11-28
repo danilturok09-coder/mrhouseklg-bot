@@ -22,26 +22,21 @@ BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 
-# ID чата, куда слать заявки по расчёту
+# id, куда отправлять лиды
 MANAGER_CHAT_ID = 759463205
 
-# Принудительное обновление кэша Telegram (увидел новые картинки — увеличь версию)
+# Принудительное обновление кэша Telegram
 CACHE_VER = "2025-11-05-3"
 
-# ========= ЛОГИ =========
+# ========= LOGGING =========
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bot")
-try:
-    import telegram
-    logger.info(f"PTB version={getattr(telegram,'__version__','unknown')} | module={telegram.__file__}")
-except Exception:
-    pass
 
 # ========= GLOBAL LOOP =========
 LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(LOOP)
 
-# ========= PTB APP (увеличенные таймауты) =========
+# ========= PTB APP =========
 tg_request = HTTPXRequest(
     connect_timeout=20.0,
     read_timeout=60.0,
@@ -84,6 +79,7 @@ LOCATIONS = [
     "КП Московский",
 ]
 
+# человекочитаемое название → slug (для путей к файлам)
 LOC_SLUG = {
     "Шопино": "shopino",
     "Чижовка": "chizhovka",
@@ -105,6 +101,7 @@ def _loc_data(name: str, body: str, *, has_video: bool = False) -> dict:
     caption = f"<b>{name}</b>\n{body}"
     return {"photo": photo, "presentation": pres, "video": video, "caption": caption}
 
+# === ОПИСАНИЯ ЛОКАЦИЙ (твои тексты) ===
 LOCATIONS_DATA = {
     "Шопино": _loc_data(
         "Шопино",
@@ -128,7 +125,7 @@ LOCATIONS_DATA = {
         "КП Южный",
         "Современный посёлок окружённый лесом на 23 домовладения в шаге от города: школы и детские сады в 10–15 минутах, "
         "крупные ТЦ — около 10 минут на автомобиле, а до центра города — примерно 10–15 минут.",
-        has_video=True
+        has_video=True  # хотим кнопку «Смотреть видео»
     ),
     "Еловка": _loc_data(
         "Еловка",
@@ -169,7 +166,7 @@ def make_locations_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= ПРОЕКТЫ (витрина) =========
+# ========= ПРОЕКТЫ (раздел «Проекты», как у тебя) =========
 PROJECTS = ["Весна 90", "Весна 98", "Весна 105", "Весна 112"]
 
 PROJECTS_DATA = {
@@ -244,149 +241,139 @@ def make_projects_inline() -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(rows)
 
-# ========= КАЛЬКУЛЯТОР СТОИМОСТИ =========
+# ========= КАЛЬКУЛЯТОР =========
 
-COST_PROJECTS = {
-    "uyut90":       {"name": "Уют 90",       "area": 90,  "price": 5_200_000},
-    "vesna90":      {"name": "Весна 90",     "area": 90,  "price": 5_700_000},
-    "vesna98":      {"name": "Весна 98",     "area": 98,  "price": 6_000_000},
-    "vesna105":     {"name": "Весна 105",    "area": 105, "price": 6_200_000},
-    "prostor110":   {"name": "Простор 110",  "area": 110, "price": 6_500_000},
-    "vesna112":     {"name": "Весна 112",    "area": 112, "price": 6_700_000},
-    "prostor114":   {"name": "Простор 114",  "area": 114, "price": 6_700_000},
-    "prostor120":   {"name": "Простор 120",  "area": 120, "price": 7_000_000},
-    "prostor130":   {"name": "Простор 130",  "area": 130, "price": 7_900_000},
+# цены за "тёплый контур"
+PROJECT_BASE_PRICES = {
+    "Уют 90": 5_200_000,
+    "Весна 90": 5_700_000,
+    "Весна 98": 6_000_000,
+    "Весна 105": 6_200_000,
+    "Простор 110": 6_500_000,
+    "Весна 112": 6_700_000,
+    "Простор 114": 6_700_000,
+    "Простор 120": 7_000_000,
+    "Простор 130": 7_900_000,
 }
 
-COST_PER_M2_ONE_FLOOR = 63_300
-COST_PER_M2_TWO_FLOORS = 61_300
-COST_PRED_PER_M2 = 15_000
-COST_COMMUNICATIONS = 500_000
+PROJECT_AREAS = {
+    "Уют 90": 90,
+    "Весна 90": 90,
+    "Весна 98": 98,
+    "Весна 105": 105,
+    "Простор 110": 110,
+    "Весна 112": 112,
+    "Простор 114": 114,
+    "Простор 120": 120,
+    "Простор 130": 130,
+}
 
-def fmt_rub(value: int) -> str:
-    return f"{value:,.0f}".replace(",", " ") + " ₽"
+CALC_PROJECTS = [
+    "Уют 90",
+    "Весна 90",
+    "Весна 98",
+    "Весна 105",
+    "Простор 110",
+    "Весна 112",
+    "Простор 114",
+    "Простор 120",
+    "Простор 130",
+]
 
-def build_cost_result_text(cost: dict) -> str:
-    mode = cost.get("mode")
-    finish = cost.get("finish")
-    comm = cost.get("comm", False)
+PRICE_PRE_FINISH_PER_SQM = 15_000
+PRICE_COMMUNICATIONS = 500_000
+CUSTOM_PRICE_PER_SQM_1F = 63_300  # одноэтажный
+CUSTOM_PRICE_PER_SQM_2F = 61_300  # двухэтажный
 
-    comm_price = COST_COMMUNICATIONS if comm else 0
+def format_rub(value: int) -> str:
+    return f"{value:,.0f} ₽".replace(",", " ")
 
-    if mode == "project":
-        name = cost["project_name"]
-        area = cost["area"]
-        base_warm = cost["base_warm_price"]
+def build_project_calc_summary(name: str) -> str:
+    base = PROJECT_BASE_PRICES[name]
+    sqm = PROJECT_AREAS.get(name)
+    pre = (sqm or 0) * PRICE_PRE_FINISH_PER_SQM
+    comms = PRICE_COMMUNICATIONS
+    total = base + pre + comms
+    rate = int(base / sqm) if sqm else None
 
-        if finish == "warm":
-            warm_price = base_warm
-            pred_extra = 0
-        else:
-            warm_price = base_warm
-            pred_extra = area * COST_PRED_PER_M2
+    txt = "📐 <b>Предварительный расчёт</b>\n\n"
+    txt += f"🏠 Дом: <b>{name}</b>"
+    if sqm:
+        txt += f" ({sqm} м²)"
+    txt += "\n\n"
 
-        house_price = warm_price + pred_extra
-        total = house_price + comm_price
+    if rate:
+        txt += f"1) Тёплый контур (~{format_rub(rate)} за м²): <b>{format_rub(base)}</b>\n"
+    else:
+        txt += f"1) Тёплый контур: <b>{format_rub(base)}</b>\n"
 
-        text = (
-            "📐 <b>Ориентировочный расчёт стоимости дома</b>\n\n"
-            f"<b>Проект:</b> {name}\n"
-            f"<b>Площадь:</b> {area} м²\n"
-            f"<b>Комплектация:</b> {'тёплый контур' if finish == 'warm' else 'тёплый контур + предчистовая'}\n\n"
-            f"🏠 Тёплый контур: <b>{fmt_rub(warm_price)}</b>\n"
+    txt += (
+        f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
+        f"+{format_rub(pre)}\n"
+        f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
+        f"<b>Итого ориентировочно: {format_rub(total)}</b>\n\n"
+        "Это предварительный расчёт, не публичная оферта.\n"
+        "Точный просчёт сделает менеджер после уточнения деталей."
+    )
+    return txt
+
+def build_custom_calc_summary(sqm: int, floors: int) -> str:
+    rate = CUSTOM_PRICE_PER_SQM_1F if floors == 1 else CUSTOM_PRICE_PER_SQM_2F
+    base = sqm * rate
+    pre = sqm * PRICE_PRE_FINISH_PER_SQM
+    comms = PRICE_COMMUNICATIONS
+    total = base + pre + comms
+
+    txt = "📐 <b>Предварительный расчёт</b>\n\n"
+    txt += f"🏠 Площадь: <b>{sqm} м²</b>, этажность: <b>{floors}</b>\n\n"
+    txt += (
+        f"1) Тёплый контур ({format_rub(rate)} за м²): <b>{format_rub(base)}</b>\n"
+        f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
+        f"+{format_rub(pre)}\n"
+        f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
+        f"<b>Итого ориентировочно: {format_rub(total)}</b>\n\n"
+        "Это предварительный расчёт, не публичная оферта.\n"
+        "Точный просчёт сделает менеджер после уточнения деталей."
+    )
+    return txt
+
+async def send_calc_or_request_contacts(chat_id: int, context: ContextTypes.DEFAULT_TYPE, summary_text: str):
+    """Если контактов ещё нет — просим их, иначе сразу отправляем расчёт."""
+    user_data = context.user_data
+    if not user_data.get("has_contacts"):
+        user_data["pending_calc_result"] = summary_text
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📲 Оставить контакты", callback_data="calc:leave_contacts")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+        ])
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "Чтобы показать подробный расчёт, оставьте, пожалуйста, контакты.\n\n"
+                "Например: «Антон, +7 9ХХ ХХХ-ХХ-ХХ».\n"
+                "После этого менеджер свяжется с вами и уточнит детали."
+            ),
+            reply_markup=markup
         )
-        if pred_extra:
-            text += f"🎨 Предчистовая отделка: <b>+{fmt_rub(pred_extra)}</b>\n"
-        if comm_price:
-            text += f"🔌 Коммуникации (газ, свет, вода, канализация): <b>+{fmt_rub(comm_price)}</b>\n"
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=summary_text, parse_mode="HTML")
 
-        text += f"\n<b>Итого ориентировочно:</b> {fmt_rub(total)}\n\n"
-        text += "Это предварительный расчёт, не публичная оферта. Точный просчёт сделает менеджер после уточнения деталей."
-        return text
+async def start_calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запуск раздела расчёта стоимости."""
+    chat_id = update.effective_chat.id
+    context.user_data["state"] = "CALC_MENU"
 
-    if mode == "custom":
-        area = cost["area"]
-        floors = cost["floors"]
-        per_m2 = cost["per_m2"]
-
-        warm_price = area * per_m2
-        if finish == "warm":
-            pred_extra = 0
-        else:
-            pred_extra = area * COST_PRED_PER_M2
-
-        house_price = warm_price + pred_extra
-        total = house_price + comm_price
-
-        text = (
-            "📐 <b>Ориентировочный расчёт стоимости дома</b>\n\n"
-            f"<b>Площадь:</b> {area} м²\n"
-            f"<b>Этажность:</b> {floors}\n"
-            f"<b>Цена за м² (тёплый контур):</b> {fmt_rub(per_m2)}\n"
-            f"<b>Комплектация:</b> {'тёплый контур' if finish == 'warm' else 'тёплый контур + предчистовая'}\n\n"
-            f"🏠 Тёплый контур: <b>{fmt_rub(warm_price)}</b>\n"
-        )
-        if pred_extra:
-            text += f"🎨 Предчистовая отделка: <b>+{fmt_rub(pred_extra)}</b>\n"
-        if comm_price:
-            text += f"🔌 Коммуникации (газ, свет, вода, канализация): <b>+{fmt_rub(comm_price)}</b>\n"
-
-        text += f"\n<b>Итого ориентировочно:</b> {fmt_rub(total)}\n\n"
-        text += "Это предварительный расчёт, не публичная оферта. Точный просчёт сделает менеджер после уточнения деталей."
-        return text
-
-    return "Не удалось собрать данные для расчёта. Попробуйте начать расчёт заново, пожалуйста."
-
-async def notify_manager_about_cost(context: ContextTypes.DEFAULT_TYPE, chat_id: int, username: str | None,
-                                    cost: dict, contact_info: str | None):
-    try:
-        mode = cost.get("mode")
-        header = "🧮 Новая заявка на расчёт стоимости\n\n"
-
-        if username:
-            header += f"From: @{username}\n"
-        header += f"Chat ID: {chat_id}\n"
-        if contact_info:
-            header += f"Контакты: {contact_info}\n\n"
-        else:
-            header += "Контакты: не указаны\n\n"
-
-        if mode == "project":
-            header += (
-                f"Режим: готовый проект\n"
-                f"Проект: {cost.get('project_name')}\n"
-                f"Площадь: {cost.get('area')} м²\n"
-            )
-        elif mode == "custom":
-            header += (
-                f"Режим: своя площадь\n"
-                f"Площадь: {cost.get('area')} м²\n"
-                f"Этажность: {cost.get('floors')}\n"
-            )
-
-        header += f"Комплектация: {'тёплый контур' if cost.get('finish') == 'warm' else 'тёплый контур + предчистовая'}\n"
-        header += f"Коммуникации: {'да' if cost.get('comm') else 'нет'}\n\n"
-
-        result_text = build_cost_result_text(cost)
-        msg = header + "----\n" + result_text
-
-        await context.bot.send_message(chat_id=MANAGER_CHAT_ID, text=msg, parse_mode="HTML")
-    except Exception as e:
-        logger.warning(f"Не удалось отправить расчёт менеджеру: {e}")
-
-def make_cost_start_markup() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏡 Выбрать готовый проект", callback_data="cost_mode:project")],
-        [InlineKeyboardButton("📏 Указать свою площадь", callback_data="cost_mode:custom")],
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏡 Выбрать типовой проект", callback_data="calc:mode_proj")],
+        [InlineKeyboardButton("📏 Указать свою площадь", callback_data="calc:mode_custom")],
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
     ])
 
-def make_cost_projects_markup() -> InlineKeyboardMarkup:
-    rows = []
-    for slug, info in COST_PROJECTS.items():
-        rows.append([InlineKeyboardButton(info["name"], callback_data=f"cost_proj:{slug}")])
-    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
-    return InlineKeyboardMarkup(rows)
+    await update.message.reply_text(
+        "📐 Давайте прикинем ориентировочную стоимость дома.\n\n"
+        "Выберите, как удобнее считать:",
+        reply_markup=markup
+    )
 
 # ========= ИИ-СТРОИТЕЛЬ (Groq) =========
 
@@ -420,6 +407,7 @@ BUILDER_SYSTEM_PROMPT = (
 )
 
 async def ask_builder_ai(user_message: str, history: list) -> str:
+    """Вызов Groq (llama-3.1-8b-instant) с контекстом диалога."""
     if not GROQ_API_KEY:
         return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте позже."
 
@@ -463,19 +451,11 @@ async def ask_builder_ai(user_message: str, history: list) -> str:
         return "ИИ-консультант временно недоступен. Пожалуйста, попробуйте чуть позже."
 
 # ========= HELPERS =========
-def _reset_user_data_keep_flags(context: ContextTypes.DEFAULT_TYPE):
-    has_contacts = context.user_data.get("has_contacts")
-    builder_history = context.user_data.get("builder_history")
-    context.user_data.clear()
-    if has_contacts:
-        context.user_data["has_contacts"] = has_contacts
-    if builder_history:
-        context.user_data["builder_history"] = builder_history
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("❗ Unhandled error", exc_info=context.error)
 
 async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Приветствие + баннер + главное меню (антидубль 10с)."""
     now = time.time()
     last = context.user_data.get("_last_welcome_ts", 0)
     if now - last < 10:
@@ -528,6 +508,7 @@ async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TY
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
 async def send_location_card(chat, location_name: str, context: ContextTypes.DEFAULT_TYPE):
+    """Локация: сначала локальный файл → затем URL → затем fallback."""
     data = LOCATIONS_DATA.get(location_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{location_name}».")
@@ -602,6 +583,7 @@ async def show_projects_inline(update: Update, context: ContextTypes.DEFAULT_TYP
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
 async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAULT_TYPE):
+    """Проект: локальный файл → URL → fallback."""
     data = PROJECTS_DATA.get(project_name)
     if not data:
         await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{project_name}».")
@@ -661,7 +643,7 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    _reset_user_data_keep_flags(context)
+    context.user_data.clear()
     await send_welcome_with_photo(update, context)
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -676,14 +658,38 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get("state", "MAIN")
     chat_id = update.effective_chat.id
 
-    # ==== ИИ ====
+    # ==== Общие кнопки (работают в любых состояниях) ====
+
+    if text == "📍 Локации домов":
+        return await show_locations_inline(update, context)
+
+    if text == "🏗️ Проекты":
+        return await show_projects_inline(update, context)
+
+    if text == "🧮 Расчёт стоимости":
+        return await start_calc(update, context)
+
+    if text == "👨‍💼 Связаться с менеджером":
+        await update.message.reply_text(
+            "📞 <b>Связь с менеджером MR.House</b>\n\n"
+            "Вы можете написать или позвонить лично:\n"
+            "👤 Антон\n"
+            "📱 +7 (910) 864-07-37\n\n"
+            "Также менеджер свяжется с вами, если вы оставляли контакты в расчёте стоимости.",
+            parse_mode="HTML",
+            reply_markup=kb(MAIN_MENU)
+        )
+        return
+
+    # ==== ИИ-строитель: вход в режим ====
     if text == "🤖 Задать вопрос ИИ":
         context.user_data["state"] = "ASK_AI"
         await update.message.reply_text(
             "🧱 <b>Вы открыли чат с ИИ-строителем MR.House</b>\n\n"
-            "Здесь можно задавать вопросы про участок, фундамент, коробку, утепление, инженерку и отделку.\n"
-            "Я помню контекст нашего диалога в рамках этой переписки и стараюсь подбирать советы под вашу ситуацию.\n\n"
-            "Напишите ваш первый вопрос, например:\n"
+            "Здесь можно задавать вопросы про участок, фундамент (особенно свайно-ростверковый), коробку, "
+            "утепление, инженерку и отделку.\n"
+            "Я помню контекст нашей беседы в рамках этого чата и стараюсь подбирать советы под вашу ситуацию.\n\n"
+            "Напишите первый вопрос, например:\n"
             "• «Какой фундамент выбрать на суглинке с высоким УГВ?»\n"
             "• «Газобетон или керамоблок для дома 120 м²?»\n"
             "• «Как лучше развести тёплый пол и радиаторы?»",
@@ -692,10 +698,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # ==== ИИ-строитель: обработка вопросов ====
     if state == "ASK_AI" and text not in (
         "📍 Локации домов", "🏗️ Проекты",
         "🧮 Расчёт стоимости", "👨‍💼 Связаться с менеджером"
     ):
+        # логируем вопросы
         try:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             line = f"{ts} | chat_id={chat_id} | {text}\n"
@@ -720,283 +728,76 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(nice_answer, parse_mode="HTML")
         return
 
-    # ==== КАЛЬКУЛЯТОР: старт ====
-    if text == "🧮 Расчёт стоимости":
-        context.user_data["state"] = "COST_MAIN"
-        context.user_data["cost_ctx"] = {}
-        await update.message.reply_text(
-            "📐 Давайте прикинем стоимость дома.\n\n"
-            "Выберите, как будем считать:",
-            reply_markup=make_cost_start_markup()
-        )
-        return
-
-    # ==== КАЛЬКУЛЯТОР: ввод площади ====
-    if state == "COST_WAIT_AREA" and text not in (
-        "📍 Локации домов", "🏗️ Проекты",
-        "🧮 Расчёт стоимости", "👨‍💼 Связаться с менеджером"
-    ):
+    # ==== Калькулятор: ожидание площади ====
+    if state == "CALC_WAIT_SQM":
+        # ждём число — площадь дома
+        cleaned = text.replace(",", ".").split()[0]
         try:
-            area = int(float(text.replace(",", ".").strip()))
-        except Exception:
+            sqm = int(float(cleaned))
+        except ValueError:
             await update.message.reply_text(
-                "Не удалось распознать площадь. Введите число, например: 120"
+                "Пожалуйста, введите число — площадь дома в м² (например, 120)."
             )
             return
 
-        if area <= 0 or area > 1000:
-            await update.message.reply_text(
-                "Площадь выглядит странно. Введите реальное число от 20 до 1000 м²."
-            )
-            return
-
-        cost = context.user_data.get("cost_ctx", {})
-        cost["mode"] = "custom"
-        cost["area"] = area
-        context.user_data["cost_ctx"] = cost
-        context.user_data["state"] = "COST_CHOOSE_FLOORS"
-
-        markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("1 этаж", callback_data="cost_cf:1")],
-            [InlineKeyboardButton("2 этажа", callback_data="cost_cf:2")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
-        await update.message.reply_text(
-            f"Принял площадь: {area} м².\nТеперь выберите этажность дома:",
-            reply_markup=markup
-        )
+        floors = context.user_data.get("calc_floors", 1)
+        summary = build_custom_calc_summary(sqm, floors)
+        await send_calc_or_request_contacts(chat_id, context, summary)
+        # после расчёта можно вернуться в главное меню, но state не трогаем — он не мешает
         return
 
-    # ==== КАЛЬКУЛЯТОР: ввод контактов ====
-    if state == "COST_WAIT_CONTACTS" and text not in (
-        "📍 Локации домов", "🏗️ Проекты",
-        "🧮 Расчёт стоимости", "👨‍💼 Связаться с менеджером"
-    ):
-        cost = context.user_data.get("cost_ctx")
-        if not cost:
-            await update.message.reply_text(
-                "Похоже, расчёт сбился. Попробуйте начать расчёт заново через кнопку «🧮 Расчёт стоимости»."
-            )
-            context.user_data["state"] = "MAIN"
-            return
+    # ==== Калькулятор: ожидание контактов ====
+    if state == "CALC_WAIT_CONTACTS":
+        contact_text = text.strip()
+        pending = context.user_data.get("pending_calc_result")
 
-        contact_info = text.strip()
+        user = update.effective_user
+        user_tag = f"@{user.username}" if user.username else f"id={user.id}"
+
+        # отправляем лид менеджеру
+        try:
+            msg = (
+                "📩 Новый запрос на расчёт из бота MR.House\n\n"
+                f"{user_tag}\n"
+                f"Имя/телефон: {contact_text}\n\n"
+            )
+            if pending:
+                msg += "📐 Расчёт:\n" + pending
+            await context.bot.send_message(MANAGER_CHAT_ID, msg, parse_mode="HTML")
+        except Exception as e:
+            logger.warning(f"Не удалось отправить лид менеджеру: {e}")
+
         context.user_data["has_contacts"] = True
-        context.user_data["contact_info"] = contact_info
-        context.user_data["state"] = "MAIN"
-
         await update.message.reply_text(
-            "Спасибо! Отправляю ориентировочный расчёт 👇",
-            reply_markup=kb(MAIN_MENU)
+            "Спасибо! Контакты записал и отправил менеджеру. Ниже — ваш ориентировочный расчёт 👇"
         )
 
-        result_text = build_cost_result_text(cost)
-        await update.message.reply_text(result_text, parse_mode="HTML")
+        if pending:
+            await update.message.reply_text(pending, parse_mode="HTML")
 
-        await notify_manager_about_cost(
-            context=context,
-            chat_id=chat_id,
-            username=update.effective_user.username if update.effective_user else None,
-            cost=cost,
-            contact_info=contact_info,
-        )
+        context.user_data["pending_calc_result"] = None
+        context.user_data["state"] = "MAIN"
         return
 
-    # ==== Остальные разделы ====
-    if text == "📍 Локации домов":
-        return await show_locations_inline(update, context)
-
-    if text == "🏗️ Проекты":
-        return await show_projects_inline(update, context)
-
+    # ==== MAIN / дефолт ====
     if state == "MAIN":
-        mapping = {
-            "👨‍💼 Связаться с менеджером": "Наш менеджер свяжется с вами: +7 (910) 864-07-37",
-        }
-        if text in mapping:
-            return await update.message.reply_text(mapping[text], reply_markup=kb(MAIN_MENU))
-        return await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
+        await update.message.reply_text("Выберите кнопку ниже 👇", reply_markup=kb(MAIN_MENU))
+        return
 
-    return  # остальное — кликами по inline
+    # Остальное — кликами по inline
+    return
 
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
     data = query.data or ""
     await query.answer()
-    chat = query.message.chat
+    user_data = context.user_data
 
-    # ==== КАЛЬКУЛЯТОР: режим ====
-    if data.startswith("cost_mode:"):
-        mode = data.split(":", 1)[1]
-        cost = {}
-        cost["mode"] = mode
-        context.user_data["cost_ctx"] = cost
-
-        if mode == "project":
-            context.user_data["state"] = "COST_PROJECT"
-            try:
-                await query.edit_message_text(
-                    "Выберите проект для расчёта:",
-                    reply_markup=make_cost_projects_markup()
-                )
-            except Exception:
-                await context.bot.send_message(
-                    chat_id=chat.id,
-                    text="Выберите проект для расчёта:",
-                    reply_markup=make_cost_projects_markup()
-                )
-        elif mode == "custom":
-            context.user_data["state"] = "COST_WAIT_AREA"
-            try:
-                await query.edit_message_text(
-                    "Введите желаемую площадь дома в м² (например, 120).",
-                    reply_markup=None
-                )
-            except Exception:
-                await context.bot.send_message(
-                    chat.id,
-                    "Введите желаемую площадь дома в м² (например, 120)."
-                )
-        return
-
-    # ==== КАЛЬКУЛЯТОР: выбор проекта ====
-    if data.startswith("cost_proj:"):
-        slug = data.split(":", 1)[1]
-        info = COST_PROJECTS.get(slug)
-        if not info:
-            await context.bot.send_message(chat.id, "Проект не найден. Попробуйте ещё раз.")
-            return
-
-        cost = context.user_data.get("cost_ctx", {})
-        cost["mode"] = "project"
-        cost["project_slug"] = slug
-        cost["project_name"] = info["name"]
-        cost["area"] = info["area"]
-        cost["base_warm_price"] = info["price"]
-        context.user_data["cost_ctx"] = cost
-
-        markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔥 Тёплый контур", callback_data="cost_finish:warm")],
-            [InlineKeyboardButton("🧱 Предчистовая отделка", callback_data="cost_finish:pred")],
-            [InlineKeyboardButton("⬅️ К выбору проекта", callback_data="cost_mode:project")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
-
-        try:
-            await query.edit_message_text(
-                f"Проект: {info['name']} ({info['area']} м²)\n\nВыберите комплектацию:",
-                reply_markup=markup
-            )
-        except Exception:
-            await context.bot.send_message(
-                chat.id,
-                f"Проект: {info['name']} ({info['area']} м²)\n\nВыберите комплектацию:",
-                reply_markup=markup
-            )
-        return
-
-    # ==== КАЛЬКУЛЯТОР: этажность (для своей площади) ====
-    if data.startswith("cost_cf:"):
-        floors_str = data.split(":", 1)[1]
-        floors = 1 if floors_str == "1" else 2
-
-        cost = context.user_data.get("cost_ctx", {})
-        cost["mode"] = "custom"
-        cost["floors"] = floors
-        cost["per_m2"] = COST_PER_M2_ONE_FLOOR if floors == 1 else COST_PER_M2_TWO_FLOORS
-        context.user_data["cost_ctx"] = cost
-
-        markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔥 Тёплый контур", callback_data="cost_finish:warm")],
-            [InlineKeyboardButton("🧱 Предчистовая отделка", callback_data="cost_finish:pred")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
-
-        try:
-            await query.edit_message_text(
-                f"Этажность: {floors}.\n\nВыберите комплектацию:",
-                reply_markup=markup
-            )
-        except Exception:
-            await context.bot.send_message(
-                chat.id,
-                f"Этажность: {floors}.\n\nВыберите комплектацию:",
-                reply_markup=markup
-            )
-        return
-
-    # ==== КАЛЬКУЛЯТОР: комплектация ====
-    if data.startswith("cost_finish:"):
-        finish = data.split(":", 1)[1]
-        cost = context.user_data.get("cost_ctx", {})
-        cost["finish"] = finish
-        context.user_data["cost_ctx"] = cost
-
-        markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Да, с коммуникациями (+500 000 ₽)", callback_data="cost_comm:yes")],
-            [InlineKeyboardButton("❌ Нет, без коммуникаций", callback_data="cost_comm:no")],
-            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
-        ])
-
-        try:
-            await query.edit_message_text(
-                "Добавить коммуникации (газ, свет, вода, канализация) за 500 000 ₽?",
-                reply_markup=markup
-            )
-        except Exception:
-            await context.bot.send_message(
-                chat.id,
-                "Добавить коммуникации (газ, свет, вода, канализация) за 500 000 ₽?",
-                reply_markup=markup
-            )
-        return
-
-    # ==== КАЛЬКУЛЯТОР: коммуникации + контакты / расчёт ====
-    if data.startswith("cost_comm:"):
-        choice = data.split(":", 1)[1]
-        cost = context.user_data.get("cost_ctx", {})
-        cost["comm"] = (choice == "yes")
-        context.user_data["cost_ctx"] = cost
-
-        has_contacts = context.user_data.get("has_contacts", False)
-
-        if not has_contacts:
-            context.user_data["state"] = "COST_WAIT_CONTACTS"
-            try:
-                await query.edit_message_text(
-                    "Чтобы показать ориентировочный расчёт, напишите, пожалуйста, как к вам обращаться "
-                    "и номер телефона одним сообщением (например: «Иван, +7 999 123-45-67»).",
-                    reply_markup=None
-                )
-            except Exception:
-                await context.bot.send_message(
-                    chat.id,
-                    "Чтобы показать ориентировочный расчёт, напишите, пожалуйста, как к вам обращаться "
-                    "и номер телефона одним сообщением (например: «Иван, +7 999 123-45-67»)."
-                )
-            return
-
-        result_text = build_cost_result_text(cost)
-        await context.bot.send_message(chat.id, result_text, parse_mode="HTML")
-
-        await notify_manager_about_cost(
-            context=context,
-            chat_id=chat.id,
-            username=query.from_user.username if query.from_user else None,
-            cost=cost,
-            contact_info=context.user_data.get("contact_info"),
-        )
-        context.user_data["state"] = "MAIN"
-        return
-
-    # ==== Локации ====
+    # Локации
     if data.startswith("loc:"):
         loc = data[4:]
         try:
-            await query.edit_message_text(
-                f"Локация {loc}:",
-                reply_markup=None
-            )
+            await query.edit_message_text(f"Локация {loc}:")
         except Exception:
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -1006,27 +807,22 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "back_to_locs":
         try:
-            await query.edit_message_text(
-                "Выберите локацию:",
-                reply_markup=make_locations_inline()
-            )
+            await query.edit_message_text("Выберите локацию:")
+            await query.edit_message_reply_markup(reply_markup=make_locations_inline())
         except Exception:
             await context.bot.send_message(
                 query.message.chat_id,
                 "Выберите локацию:",
                 reply_markup=make_locations_inline()
             )
-        context.user_data["state"] = "LOC_LIST"
+        user_data["state"] = "LOC_LIST"
         return
 
-    # ==== Проекты ====
+    # Проекты
     if data.startswith("proj:"):
         proj = data[5:]
         try:
-            await query.edit_message_text(
-                f"Проект {proj}:",
-                reply_markup=None
-            )
+            await query.edit_message_text(f"Проект {proj}:")
         except Exception:
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -1036,22 +832,119 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "back_to_projects":
         try:
-            await query.edit_message_text(
-                "Выберите проект:",
-                reply_markup=make_projects_inline()
-            )
+            await query.edit_message_text("Выберите проект:")
+            await query.edit_message_reply_markup(reply_markup=make_projects_inline())
         except Exception:
             await context.bot.send_message(
                 query.message.chat_id,
                 "Выберите проект:",
                 reply_markup=make_projects_inline()
             )
-        context.user_data["state"] = "PROJ_LIST"
+        user_data["state"] = "PROJ_LIST"
         return
 
-    # ==== В меню ====
+    # ===== КАЛЬКУЛЯТОР: inline-кнопки =====
+
+    # режим выбора: проект / своя площадь
+    if data == "calc:mode_proj":
+        user_data["state"] = "CALC_MENU"
+        rows = [
+            [InlineKeyboardButton(name, callback_data=f"calc:p:{i}")]
+            for i, name in enumerate(CALC_PROJECTS)
+        ]
+        rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="calc:back_menu")])
+        markup = InlineKeyboardMarkup(rows)
+        try:
+            await query.edit_message_text("Выберите проект для расчёта:", reply_markup=markup)
+        except Exception:
+            await context.bot.send_message(
+                query.message.chat_id,
+                "Выберите проект для расчёта:",
+                reply_markup=markup
+            )
+        return
+
+    if data == "calc:mode_custom":
+        user_data["state"] = "CALC_CHOOSE_FLOORS"
+        markup = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("1 этаж", callback_data="calc:floor:1"),
+                InlineKeyboardButton("2 этажа", callback_data="calc:floor:2"),
+            ],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="calc:back_menu")],
+        ])
+        try:
+            await query.edit_message_text("Выберите количество этажей:", reply_markup=markup)
+        except Exception:
+            await context.bot.send_message(
+                query.message.chat_id,
+                "Выберите количество этажей:",
+                reply_markup=markup
+            )
+        return
+
+    if data.startswith("calc:floor:"):
+        floors = int(data.split(":")[2])
+        user_data["calc_floors"] = floors
+        user_data["state"] = "CALC_WAIT_SQM"
+        try:
+            await query.edit_message_text("Введите желаемую площадь дома в м² (например, 120).")
+        except Exception:
+            await context.bot.send_message(
+                query.message.chat_id,
+                "Введите желаемую площадь дома в м² (например, 120)."
+            )
+        return
+
+    if data.startswith("calc:p:"):
+        idx = int(data.split(":")[2])
+        proj_name = CALC_PROJECTS[idx]
+        summary = build_project_calc_summary(proj_name)
+        chat_id = query.message.chat.id
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await send_calc_or_request_contacts(chat_id, context, summary)
+        return
+
+    if data == "calc:back_menu":
+        # возвращаем корневое меню калькулятора
+        user_data["state"] = "CALC_MENU"
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏡 Выбрать типовой проект", callback_data="calc:mode_proj")],
+            [InlineKeyboardButton("📏 Указать свою площадь", callback_data="calc:mode_custom")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+        ])
+        try:
+            await query.edit_message_text(
+                "📐 Давайте прикинем ориентировочную стоимость дома.\n\n"
+                "Выберите, как удобнее считать:",
+                reply_markup=markup
+            )
+        except Exception:
+            await context.bot.send_message(
+                query.message.chat_id,
+                "📐 Давайте прикинем ориентировочную стоимость дома.\n\n"
+                "Выберите, как удобнее считать:",
+                reply_markup=markup
+            )
+        return
+
+    if data == "calc:leave_contacts":
+        user_data["state"] = "CALC_WAIT_CONTACTS"
+        await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text=(
+                "✍️ Напишите, пожалуйста, как вас зовут и телефон в одном сообщении.\n\n"
+                "Например: «Антон, +7 9ХХ ХХХ-ХХ-ХХ»."
+            )
+        )
+        return
+
+    # В меню
     if data == "back_to_menu":
-        _reset_user_data_keep_flags(context)
+        user_data.clear()
         try:
             await query.edit_message_reply_markup(reply_markup=None)
         except Exception:
@@ -1066,7 +959,7 @@ application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 application.add_error_handler(error_handler)
 
-# ========= FLASK =========
+# ========= FLASK (экспортируем 'web_app') =========
 web_app = Flask(__name__)
 
 @web_app.get("/")
