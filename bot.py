@@ -182,6 +182,7 @@ PROJECTS_DATA = {
             "• Санузел: 5,9 м²\n"
             "• Прихожая: 12,2 м²\n"
             "• Крыльцо: 3,9 м²"
+            "• Стоимость строительства - 5 700 000 р."
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna90/vesna90.pdf",
     },
@@ -198,6 +199,7 @@ PROJECTS_DATA = {
             "• Санузел гостевой: 2,5 м²\n"
             "• Прихожая: 13,3 м²\n"
             "• Крыльцо: 3,5 м²"
+            "• Стоимость строительства - 6 000 000 р."
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna98/vesna98.pdf",
     },
@@ -214,6 +216,7 @@ PROJECTS_DATA = {
             "• Санузел гостевой: 2,7 м²\n"
             "• Прихожая: 14,1 м²\n"
             "• Крыльцо: 3,5 м²"
+            "• Стоимость строительства - 6 200 000 р."
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna105/vesna105.pdf",
     },
@@ -231,6 +234,7 @@ PROJECTS_DATA = {
             "• Гардероб: 6,7 м²\n"
             "• Прихожая: 15,2 м²\n"
             "• Крыльцо: 4,9 м²"
+            "• Стоимость строительства - 6 700 000 р."
         ),
         "presentation": f"{BASE_URL}/static/projects/vesna112/vesna112.pdf",
     },
