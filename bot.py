@@ -973,7 +973,7 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-        # В меню
+    # В меню
     if data == "back_to_menu":
         has_contacts = user_data.get("has_contacts", False)
         builder_history = user_data.get("builder_history", [])
