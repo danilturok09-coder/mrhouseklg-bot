@@ -788,7 +788,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Спасибо! Контакты записал и отправил менеджеру. Ниже — ваш ориентировочный расчёт 👇"
         )
 
-        if pending:
+if pending:
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")]
     ])
