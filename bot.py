@@ -659,9 +659,17 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await send_welcome_with_photo(update, context)
+    has_contacts = context.user_data.get("has_contacts", False)
+    builder_history = context.user_data.get("builder_history", [])
 
+    context.user_data.clear()
+
+    if has_contacts:
+        context.user_data["has_contacts"] = True
+    if builder_history:
+        context.user_data["builder_history"] = builder_history
+
+    await send_welcome_with_photo(update, context)
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "MAIN"
     await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
@@ -966,13 +974,23 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     # В меню
-    if data == "back_to_menu":
-        user_data.clear()
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-        return await send_welcome_with_photo(query_update, context)
+    
+if data == "back_to_menu":
+    has_contacts = user_data.get("has_contacts", False)
+    builder_history = user_data.get("builder_history", [])
+
+    user_data.clear()
+
+    if has_contacts:
+        user_data["has_contacts"] = True
+    if builder_history:
+        user_data["builder_history"] = builder_history
+
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    return await send_welcome_with_photo(query_update, context)
 
 # Регистрация
 application.add_handler(CommandHandler(["start", "star"], cmd_start))
