@@ -788,19 +788,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Спасибо! Контакты записал и отправил менеджеру. Ниже — ваш ориентировочный расчёт 👇"
         )
 
-if pending:
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")]
-    ])
-    await update.message.reply_text(
-        pending,
-        parse_mode="HTML",
-        reply_markup=markup
-    )
+        if pending:
+            markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")]
+            ])
+            await update.message.reply_text(
+                pending,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
 
-context.user_data["pending_calc_result"] = None
-context.user_data["state"] = "MAIN"
-return
+        context.user_data["pending_calc_result"] = None
+        context.user_data["state"] = "MAIN"
+        return
 
     # ==== MAIN / дефолт ====
     if state == "MAIN":
@@ -809,7 +809,7 @@ return
 
     # Остальное — кликами по inline
     return
-
+    
 async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = query_update.callback_query
     data = query.data or ""
