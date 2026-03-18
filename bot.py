@@ -364,8 +364,16 @@ async def send_calc_or_request_contacts(chat_id: int, context: ContextTypes.DEFA
             reply_markup=markup
         )
     else:
-        await context.bot.send_message(chat_id=chat_id, text=summary_text, parse_mode="HTML")
-
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")]
+        ])
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=summary_text,
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+        
 async def start_calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Запуск раздела расчёта стоимости."""
     chat_id = update.effective_chat.id
@@ -781,11 +789,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         if pending:
-            await update.message.reply_text(pending, parse_mode="HTML")
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")]
+    ])
+    await update.message.reply_text(
+        pending,
+        parse_mode="HTML",
+        reply_markup=markup
+    )
 
-        context.user_data["pending_calc_result"] = None
-        context.user_data["state"] = "MAIN"
-        return
+context.user_data["pending_calc_result"] = None
+context.user_data["state"] = "MAIN"
+return
 
     # ==== MAIN / дефолт ====
     if state == "MAIN":
