@@ -312,13 +312,13 @@ def build_project_calc_summary(name: str) -> str:
         txt += f"1) Тёплый контур: <b>{format_rub(base)}</b>\n"
 
     txt += (
-        f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
-        f"+{format_rub(pre)}\n"
-        f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
-        f"<b>Итого ориентировочно: {format_rub(total)}</b>\n\n"
-        "Это предварительный расчёт, не публичная оферта.\n"
-        "Точный просчёт сделает менеджер после уточнения деталей."
-    )
+    f"1) Тёплый контур ({format_rub(rate)} за м²): <b>{format_rub(base)}</b>\n"
+    f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
+    f"+{format_rub(pre)}\n"
+    f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
+    "Это предварительный расчёт, не публичная оферта.\n"
+    "Точный просчёт сделает менеджер после уточнения деталей."
+)
     return txt
 
 def build_custom_calc_summary(sqm: int, floors: int) -> str:
@@ -330,15 +330,15 @@ def build_custom_calc_summary(sqm: int, floors: int) -> str:
 
     txt = "📐 <b>Предварительный расчёт</b>\n\n"
     txt += f"🏠 Площадь: <b>{sqm} м²</b>, этажность: <b>{floors}</b>\n\n"
+    
     txt += (
-        f"1) Тёплый контур ({format_rub(rate)} за м²): <b>{format_rub(base)}</b>\n"
-        f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
-        f"+{format_rub(pre)}\n"
-        f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
-        f"<b>Итого ориентировочно: {format_rub(total)}</b>\n\n"
-        "Это предварительный расчёт, не публичная оферта.\n"
-        "Точный просчёт сделает менеджер после уточнения деталей."
-    )
+    f"1) Тёплый контур ({format_rub(rate)} за м²): <b>{format_rub(base)}</b>\n"
+    f"2) Предчистовая отделка ({format_rub(PRICE_PRE_FINISH_PER_SQM)} за м²): "
+    f"+{format_rub(pre)}\n"
+    f"3) Коммуникации (газ, свет, вода, канализация): +{format_rub(comms)}\n\n"
+    "Это предварительный расчёт, не публичная оферта.\n"
+    "Точный просчёт сделает менеджер после уточнения деталей."
+)
     return txt
 
 async def send_calc_or_request_contacts(chat_id: int, context: ContextTypes.DEFAULT_TYPE, summary_text: str):
