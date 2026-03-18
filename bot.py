@@ -975,11 +975,11 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 
     # В меню
     
-if data == "back_to_menu":
-    has_contacts = user_data.get("has_contacts", False)
-    builder_history = user_data.get("builder_history", [])
+    if data == "back_to_menu":
+        has_contacts = user_data.get("has_contacts", False)
+        builder_history = user_data.get("builder_history", [])
 
-    user_data.clear()
+        user_data.clear()
 
     if has_contacts:
         user_data["has_contacts"] = True
@@ -990,6 +990,7 @@ if data == "back_to_menu":
         await query.edit_message_reply_markup(reply_markup=None)
     except Exception:
         pass
+
     return await send_welcome_with_photo(query_update, context)
 
 # Регистрация
