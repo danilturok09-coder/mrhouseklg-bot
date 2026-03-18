@@ -973,25 +973,24 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-    # В меню
-    
+        # В меню
     if data == "back_to_menu":
         has_contacts = user_data.get("has_contacts", False)
         builder_history = user_data.get("builder_history", [])
 
         user_data.clear()
 
-    if has_contacts:
-        user_data["has_contacts"] = True
-    if builder_history:
-        user_data["builder_history"] = builder_history
+        if has_contacts:
+            user_data["has_contacts"] = True
+        if builder_history:
+            user_data["builder_history"] = builder_history
 
-    try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
-    return await send_welcome_with_photo(query_update, context)
+        return await send_welcome_with_photo(query_update, context)
 
 # Регистрация
 application.add_handler(CommandHandler(["start", "star"], cmd_start))
