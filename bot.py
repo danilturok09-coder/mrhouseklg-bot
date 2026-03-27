@@ -161,6 +161,303 @@ LOCATIONS_DATA = {
     ),
 }
 
+# ========= ДОМА ПО ЛОКАЦИЯМ =========
+
+LOCATION_HOUSES = {
+    "Шопино": [
+        {
+            "id": "shopino_1",
+            "button": "Простор 85 кв.м на 5 сотках — 7,6 млн ₽",
+            "photo": "https://disk.yandex.ru/i/m34-KEnH7C5RKQ",
+            "caption": (
+                "🏡 <b>Простор 85 м²</b>\n\n"
+                "📍 <b>Локация:</b> Шопино\n"
+                "🗺 <a href='https://clck.ru/3SnGqU'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 85 м²\n"
+                "🌿 <b>Участок:</b> 5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000178:1050\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n"
+                "• Электричество\n"
+                "• Септик\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
+                "💰 <b>Стоимость:</b> 7 600 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/ySbockAy_YTzeg"
+        }
+    ],
+
+    "р-н магазина METRO": [
+        {
+            "id": "metro_1",
+            "button": "Весна 105 кв.м на 7,4 сотках — 8,3 млн ₽",
+            "photo": "https://disk.yandex.ru/i/AWLFN8fUU_M9OQ",
+            "caption": (
+                "🏡 <b>Весна 105 м²</b>\n\n"
+                "📍 <b>Локация:</b> р-н METRO\n"
+                "🗺 <a href='https://clck.ru/3SnHvw'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 105 м²\n"
+                "🌿 <b>Участок:</b> 7,4 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000216:945\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
+                "💰 <b>Стоимость:</b> 8 300 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/D8IYFStqED4Hog"
+        },
+        {
+            "id": "metro_2",
+            "button": "Весна 105 кв.м на 7,4 сотках — 8,3 млн ₽",
+            "photo": "https://disk.yandex.ru/i/GQQ_GmqthbXXBQ",
+            "caption": (
+                "🏡 <b>Весна 105 м²</b>\n\n"
+                "📍 <b>Локация:</b> р-н METRO\n"
+                "🗺 <a href='https://clck.ru/3SnHvw'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 105 м²\n"
+                "🌿 <b>Участок:</b> 7,4 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000216:946\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
+                "🏗 <b>Статус:</b> Апрель 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 300 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/0nSzo4yoVi0YMQ"
+        },
+        {
+            "id": "metro_3",
+            "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
+            "photo": "https://disk.yandex.ru/i/Jhr_Es9U5nERww",
+            "caption": (
+                "🏡 <b>Весна 112 м²</b>\n\n"
+                "📍 <b>Локация:</b> р-н METRO\n"
+                "🗺 <a href='https://yandex.ru/maps/-/CLhDE0li'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 112 м²\n"
+                "🌿 <b>Участок:</b> 7,3 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000216:843\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
+                "🏗 <b>Статус:</b> Май–Июнь 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 500 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/sDSjqPoIGxT1-Q"
+        },
+        {
+            "id": "metro_4",
+            "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
+            "photo": "https://disk.yandex.ru/i/dlOIyx9058baWg",
+            "caption": (
+                "🏡 <b>Весна 112 м²</b>\n\n"
+                "📍 <b>Локация:</b> р-н METRO\n"
+                "🗺 <a href='https://yandex.ru/maps/-/CLhDE0li'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 112 м²\n"
+                "🌿 <b>Участок:</b> 7,3 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000216:843\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
+                "🏗 <b>Статус:</b> Май–Июнь 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 500 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/2vlojDb2jj6Gaw"
+        },
+        {
+            "id": "metro_5",
+            "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
+            "photo": "https://disk.yandex.ru/i/ta1rjsMygOgLFA",
+            "caption": (
+                "🏡 <b>Весна 112 м²</b>\n\n"
+                "📍 <b>Локация:</b> р-н METRO\n"
+                "🗺 <a href='https://yandex.ru/maps/-/CLhDE0li'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 112 м²\n"
+                "🌿 <b>Участок:</b> 7,3 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000216:843\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
+                "🏗 <b>Статус:</b> Май–Июнь 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 500 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/utkKJJktEd9yjQ"
+        },
+    ],
+
+    "КП Южный": [
+        {
+            "id": "kp_yuzhniy_1",
+            "button": "Весна 90 кв.м на 6 сотках — 8,5 млн ₽",
+            "photo": "https://disk.yandex.ru/i/gVtG2-Wsvt2otg",
+            "caption": (
+                "🏡 <b>Весна 90 м²</b>\n\n"
+                "📍 <b>Локация:</b> КП Южный\n"
+                "🗺 <a href='https://clck.ru/3SnL2V'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 90 м²\n"
+                "🌿 <b>Участок:</b> 6 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000182:983\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Септик\n• Колодец\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
+                "💰 <b>Стоимость:</b> 8 500 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/3YnnjJ5ctgwXrQ"
+        },
+        {
+            "id": "kp_yuzhniy_2",
+            "button": "Простор 135 кв.м на 6,5 сотках — 8,9 млн ₽",
+            "photo": "https://disk.yandex.ru/i/H6FDSDnrldYFsQ",
+            "caption": (
+                "🏡 <b>Простор 135 м²</b>\n\n"
+                "📍 <b>Локация:</b> КП Южный\n"
+                "🗺 <a href='https://clck.ru/3SnL2V'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 135 м²\n"
+                "🌿 <b>Участок:</b> 6,5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n"
+                "40:25:000182:981\n\n"
+                "🔌 <b>Коммуникации:</b>\n"
+                "• Газ\n• Электричество\n• Септик\n• Колодец\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
+                "💰 <b>Стоимость:</b> 8 900 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/Zx16lfKXNHWxMA"
+        }
+    ],
+
+    "ВеснаЛэнд (Черносвитино)": [
+        {
+            "id": "vesnaland_1",
+            "button": "Весна 101 кв.м на 5 сотках — 8,7 млн ₽",
+            "photo": "https://disk.yandex.ru/i/lpCtKlm5IdFLFQ",
+            "caption": (
+                "🏡 <b>Весна 101 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://clck.ru/3SnNGT'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 101 м²\n"
+                "🌿 <b>Участок:</b> 5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:26:000112:597\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Июнь–Июль 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 700 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/e6GagFqP09Dw3A"
+        },
+        {
+            "id": "vesnaland_2",
+            "button": "Весна 101 кв.м на 5 сотках — 8,7 млн ₽",
+            "photo": "https://disk.yandex.ru/i/lpCtKlm5IdFLFQ",
+            "caption": (
+                "🏡 <b>Весна 101 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://clck.ru/3SnNGT'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 101 м²\n"
+                "🌿 <b>Участок:</b> 5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:26:000112:595\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Июнь–Июль 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 700 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/-poNq81vLxdxMQ"
+        },
+        {
+            "id": "vesnaland_3",
+            "button": "Весна 101 кв.м на 5 сотках — 8,7 млн ₽",
+            "photo": "https://disk.yandex.ru/i/lpCtKlm5IdFLFQ",
+            "caption": (
+                "🏡 <b>Весна 101 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://clck.ru/3SnNGT'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 101 м²\n"
+                "🌿 <b>Участок:</b> 5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:26:000112:594\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Июнь–Июль 2026\n\n"
+                "💰 <b>Стоимость:</b> 8 700 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/NqqsiABATJAUWw"
+        },
+        {
+            "id": "vesnaland_4",
+            "button": "Простор 120 кв.м на 7,2 сотках — 10 млн ₽",
+            "photo": "https://disk.yandex.ru/i/p6yCr3JuyAyanQ",
+            "caption": (
+                "🏡 <b>Простор 120 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://clck.ru/3SnNjD'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 120 м²\n"
+                "🌿 <b>Участок:</b> 7,2 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:25:000110:706\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
+                "💰 <b>Стоимость:</b> 10 000 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/2y811AaUJbf4Tg"
+        },
+        {
+            "id": "vesnaland_5",
+            "button": "Простор 124 кв.м на 6,3 сотках — 9,9 млн ₽",
+            "photo": "https://disk.yandex.ru/i/KrZhdgHLzx2izA",
+            "caption": (
+                "🏡 <b>Простор 124 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://yandex.ru/maps/-/CLhP68JI'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 124 м²\n"
+                "🌿 <b>Участок:</b> 6,3 сотки\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:25:000110:663\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Август 2026\n\n"
+                "💰 <b>Стоимость:</b> 9 900 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/l66doAfpP6XYhg"
+        },
+        {
+            "id": "vesnaland_6",
+            "button": "Простор 124 кв.м на 6,5 сотках — 9,9 млн ₽",
+            "photo": "https://disk.yandex.ru/i/KrZhdgHLzx2izA",
+            "caption": (
+                "🏡 <b>Простор 124 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://yandex.ru/maps/-/CLhPfE-l'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 124 м²\n"
+                "🌿 <b>Участок:</b> 6,5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:25:000110:662\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Август 2026\n\n"
+                "💰 <b>Стоимость:</b> 9 900 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/jjH-0_TjyuNl-A"
+        },
+        {
+            "id": "vesnaland_7",
+            "button": "Весна 105 кв.м на 5,5 сотках — 9 млн ₽",
+            "photo": "https://disk.yandex.ru/i/hjum8bSzZ74y2w",
+            "caption": (
+                "🏡 <b>Весна 105 м²</b>\n\n"
+                "📍 <b>Локация:</b> ВеснаЛэнд (Черносвитино)\n"
+                "🗺 <a href='https://clck.ru/3SnQ3E'>Посмотреть на карте</a>\n\n"
+                "📐 <b>Площадь дома:</b> 105 м²\n"
+                "🌿 <b>Участок:</b> 5,5 соток\n\n"
+                "📄 <b>Кадастровый номер:</b>\n40:25:000110:687\n\n"
+                "🔌 <b>Коммуникации:</b>\n• Газ\n• Электричество\n• Центральная вода\n• Центральная канализация\n\n"
+                "🏗 <b>Статус:</b> Июль–Август 2026\n\n"
+                "💰 <b>Стоимость:</b> 9 000 000 ₽"
+            ),
+            "media_url": "https://disk.yandex.ru/d/6SCZ0XgvmUf6Zw"
+        }
+    ],
+
+    # Заглушки для остальных локаций
+    "Чижовка": [],
+    "Еловка": [],
+    "Сивково": [],
+    "Некрасово": [],
+    "Груздово": [],
+    "КП Московский": [],
+}
+
 def make_locations_inline() -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(name, callback_data=f"loc:{name}")] for name in LOCATIONS]
     rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
@@ -523,65 +820,80 @@ async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         await context.bot.send_message(update.effective_chat.id, text, reply_markup=markup)
 
+def make_location_houses_inline(location_name: str) -> InlineKeyboardMarkup:
+    houses = LOCATION_HOUSES.get(location_name, [])
+    rows = [
+        [InlineKeyboardButton(h["button"], callback_data=f"house:{location_name}:{h['id']}")]
+        for h in houses
+    ]
+    rows.append([InlineKeyboardButton("⬅️ К списку локаций", callback_data="back_to_locs")])
+    rows.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
+    return InlineKeyboardMarkup(rows)
+
+
 async def send_location_card(chat, location_name: str, context: ContextTypes.DEFAULT_TYPE):
-    """Локация: сначала локальный файл → затем URL → затем fallback."""
-    data = LOCATIONS_DATA.get(location_name)
-    if not data:
-        await context.bot.send_message(chat_id=chat.id, text=f"Скоро добавим карточку для «{location_name}».")
+    """Теперь показывает список домов в выбранной локации."""
+    houses = LOCATION_HOUSES.get(location_name, [])
+
+    if not houses:
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ К списку локаций", callback_data="back_to_locs")],
+            [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+        ])
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=(
+                f"📍 <b>{location_name}</b>\n\n"
+                "Скоро здесь появятся актуальные дома.\n"
+                "Мы уже готовим карточки объектов 👌"
+            ),
+            parse_mode="HTML",
+            reply_markup=markup
+        )
         return
 
-    photo_url = data.get("photo")
-    presentation = data.get("presentation")
-    video = data.get("video")
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=f"📍 <b>{location_name}</b>\n\nВыберите дом:",
+        parse_mode="HTML",
+        reply_markup=make_location_houses_inline(location_name)
+    )
 
-    buttons = []
-    if presentation:
-        buttons.append([InlineKeyboardButton("📘 Смотреть презентацию", url=presentation)])
-    if video:
-        buttons.append([InlineKeyboardButton("🎬 Смотреть видео", url=video)])
-    buttons.append([InlineKeyboardButton("📋 К списку локаций", callback_data="back_to_locs")])
-    buttons.append([InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")])
-    markup = InlineKeyboardMarkup(buttons)
 
+async def send_house_card(chat, location_name: str, house_id: str, context: ContextTypes.DEFAULT_TYPE):
+    houses = LOCATION_HOUSES.get(location_name, [])
+    house = next((h for h in houses if h["id"] == house_id), None)
+
+    if not house:
+        await context.bot.send_message(chat_id=chat.id, text="Карточка дома не найдена.")
+        return
+
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 Посмотреть фото / видео дома", url=house["media_url"])],
+        [InlineKeyboardButton("⬅️ Назад", callback_data=f"back_to_house_list:{location_name}")],
+        [InlineKeyboardButton("🏠 Вернуться в меню", callback_data="back_to_menu")],
+    ])
+
+    photo_url = house.get("photo")
     sent = False
-    try:
-        local_path = None
-        if photo_url and BASE_URL and photo_url.startswith(f"{BASE_URL}/"):
-            rel_url = photo_url[len(BASE_URL):].lstrip("/")
-            rel_path = unquote(rel_url.split("?", 1)[0])
-            if rel_path.startswith("static/"):
-                local_path = rel_path
 
-        if local_path and os.path.isfile(local_path) and os.path.getsize(local_path) > 0:
-            with open(local_path, "rb") as f:
-                await context.bot.send_photo(
-                    chat_id=chat.id,
-                    photo=InputFile(f, filename=os.path.basename(local_path)),
-                    caption=data["caption"],
-                    parse_mode="HTML",
-                    reply_markup=markup
-                )
-                sent = True
-    except Exception as e:
-        logger.warning(f"send_photo(local) failed for {location_name}: {e}")
-
-    if not sent and photo_url:
+    if photo_url:
         try:
             await context.bot.send_photo(
                 chat_id=chat.id,
                 photo=photo_url,
-                caption=data["caption"],
+                caption=house["caption"],
                 parse_mode="HTML",
                 reply_markup=markup
             )
             sent = True
         except Exception as e:
-            logger.warning(f"send_photo(url) failed for {location_name}: {e}")
+            logger.warning(f"send house photo failed for {house_id}: {e}")
 
     if not sent:
         await context.bot.send_message(
             chat_id=chat.id,
-            text=data["caption"],
+            text=house["caption"],
             parse_mode="HTML",
             reply_markup=markup
         )
@@ -848,6 +1160,27 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
             )
         user_data["state"] = "LOC_LIST"
         return
+        
+            if data.startswith("house:"):
+        _, location_name, house_id = data.split(":", 2)
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return await send_house_card(query.message.chat, location_name, house_id, context)
+
+    if data.startswith("back_to_house_list:"):
+        location_name = data.split(":", 1)[1]
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"📍 <b>{location_name}</b>\n\nВыберите дом:",
+            parse_mode="HTML",
+            reply_markup=make_location_houses_inline(location_name)
+        )
 
     # Проекты
     if data.startswith("proj:"):
