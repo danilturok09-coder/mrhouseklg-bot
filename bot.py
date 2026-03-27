@@ -1161,7 +1161,7 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
         user_data["state"] = "LOC_LIST"
         return
         
-            if data.startswith("house:"):
+    if data.startswith("house:"):
         _, location_name, house_id = data.split(":", 2)
         try:
             await query.edit_message_reply_markup(reply_markup=None)
