@@ -70,7 +70,6 @@ async def load_subscribers() -> list[dict]:
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # Получаем ссылку на скачивание файла
             resp = await client.get(
                 "https://cloud-api.yandex.net/v1/disk/resources/download",
                 headers=headers,
@@ -104,7 +103,6 @@ async def save_subscribers(subscribers: list[dict]) -> None:
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # Получаем ссылку для загрузки/перезаписи файла
             resp = await client.get(
                 "https://cloud-api.yandex.net/v1/disk/resources/upload",
                 headers=headers,
