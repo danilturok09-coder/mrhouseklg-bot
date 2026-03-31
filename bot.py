@@ -1016,7 +1016,7 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    add_subscriber(update.effective_user)  # ← ВОТ ЭТА СТРОКА
+    add_subscriber(update.effective_user)
 
     has_contacts = context.user_data.get("has_contacts", False)
     builder_history = context.user_data.get("builder_history", [])
@@ -1027,14 +1027,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["has_contacts"] = True
     if builder_history:
         context.user_data["builder_history"] = builder_history
+
     await send_welcome_with_photo(update, context)
+
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "MAIN"
     await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
 
+
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🏓 Pong! Бот работает ✅")
+
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -1076,20 +1080,21 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Отправлено: {sent}\n"
         f"Ошибок: {failed}"
     )
-    
-    async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        if not user or user.id != ADMIN_ID:
-            return await update.message.reply_text("Эта команда доступна только администратору.")
 
-        raw_text = " ".join(context.args).strip()
-        if not raw_text or "|" not in raw_text:
-            return await update.message.reply_text(
-                "Использование:\n"
-                "/newhouse Локация | Название дома\n\n"
-                "Пример:\n"
-                "/newhouse Шопино | Простор 85 кв.м на 5 сотках — 7,6 млн ₽"
-            )
+
+async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not user or user.id != ADMIN_ID:
+        return await update.message.reply_text("Эта команда доступна только администратору.")
+
+    raw_text = " ".join(context.args).strip()
+    if not raw_text or "|" not in raw_text:
+        return await update.message.reply_text(
+            "Использование:\n"
+            "/newhouse Локация | Название дома\n\n"
+            "Пример:\n"
+            "/newhouse Шопино | Простор 85 кв.м на 5 сотках — 7,6 млн ₽"
+        )
 
     location_name, house_name = [part.strip() for part in raw_text.split("|", 1)]
 
@@ -1128,7 +1133,8 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Отправлено: {sent}\n"
         f"Ошибок: {failed}"
     )
-    
+
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
