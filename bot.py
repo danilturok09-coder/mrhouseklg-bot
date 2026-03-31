@@ -22,6 +22,11 @@ BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 
+import json
+
+ADMIN_ID = 759463205
+SUBSCRIBERS_FILE = "subscribers.json"
+
 # id, куда отправлять лиды
 MANAGER_CHAT_ID = 759463205
 
