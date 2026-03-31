@@ -1077,6 +1077,58 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ошибок: {failed}"
     )
     
+    async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not user or user.id != ADMIN_ID:
+        return await update.message.reply_text("Эта команда доступна только администратору.")
+
+    raw_text = " ".join(context.args).strip()
+    if not raw_text or "|" not in raw_text:
+        return await update.message.reply_text(
+            "Использование:\n"
+            "/newhouse Локация | Название дома\n\n"
+            "Пример:\n"
+            "/newhouse Шопино | Простор 85 кв.м на 5 сотках — 7,6 млн ₽"
+        )
+
+    location_name, house_name = [part.strip() for part in raw_text.split("|", 1)]
+
+    message_text = (
+        "🏡 <b>Новый дом в продаже</b>\n\n"
+        f"📍 <b>Локация:</b> {location_name}\n"
+        f"🏠 <b>Дом:</b> {house_name}\n\n"
+        "Откройте бот, чтобы посмотреть подробнее."
+    )
+
+    subscribers = load_subscribers()
+    if not subscribers:
+        return await update.message.reply_text("Список подписчиков пуст.")
+
+    sent = 0
+    failed = 0
+
+    for sub in subscribers:
+        chat_id = sub.get("chat_id")
+        if not chat_id:
+            continue
+
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=message_text,
+                parse_mode="HTML"
+            )
+            sent += 1
+        except Exception as e:
+            logger.warning(f"Не удалось отправить newhouse в {chat_id}: {e}")
+            failed += 1
+
+    await update.message.reply_text(
+        f"✅ Уведомление о новом доме отправлено.\n\n"
+        f"Отправлено: {sent}\n"
+        f"Ошибок: {failed}"
+    )
+    
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
@@ -1419,6 +1471,7 @@ application.add_handler(CommandHandler(["start", "star"], cmd_start))
 application.add_handler(CommandHandler("menu", cmd_menu))
 application.add_handler(CommandHandler("ping", cmd_ping))
 application.add_handler(CommandHandler("broadcast", cmd_broadcast))
+application.add_handler(CommandHandler("newhouse", cmd_newhouse))
 application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 application.add_error_handler(error_handler)
