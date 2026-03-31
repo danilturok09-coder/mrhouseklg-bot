@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import asyncio
+import json
 from urllib.parse import unquote
 
 import httpx
@@ -907,6 +908,80 @@ async def send_welcome_with_photo(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=kb(MAIN_MENU)
     )
     context.user_data["state"] = "MAIN"
+
+# ========= ПОДПИСЧИКИ (ЯНДЕКС ДИСК) =========
+
+async def load_subscribers():
+    if not YANDEX_DISK_TOKEN:
+        return []
+
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/download",
+                headers=headers,
+                params={"path": "subscribers.json"}  # 👈 ВИДИМЫЙ ФАЙЛ
+            )
+
+            if resp.status_code != 200:
+                return []
+
+            download_url = resp.json().get("href")
+            file_resp = await client.get(download_url)
+
+            return file_resp.json()
+
+    except Exception as e:
+        logger.warning(f"Ошибка загрузки базы: {e}")
+        return []
+
+
+async def save_subscribers(data):
+    if not YANDEX_DISK_TOKEN:
+        return
+
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/upload",
+                headers=headers,
+                params={
+                    "path": "subscribers.json",
+                    "overwrite": "true"
+                }
+            )
+
+            upload_url = resp.json().get("href")
+
+            await client.put(
+                upload_url,
+                content=json.dumps(data, ensure_ascii=False).encode("utf-8")
+            )
+
+    except Exception as e:
+        logger.warning(f"Ошибка сохранения базы: {e}")
+
+
+async def add_subscriber(user):
+    if not user:
+        return
+
+    subscribers = await load_subscribers()
+
+    if any(s.get("chat_id") == user.id for s in subscribers):
+        return
+
+    subscribers.append({
+        "chat_id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+    })
+
+    await save_subscribers(subscribers)
 
 # ========= ЛОКАЦИИ (UI) =========
 async def show_locations_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
