@@ -19,8 +19,8 @@ from telegram.request import HTTPXRequest
 # ========= ENV =========
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BASE_URL  = os.environ.get("BASE_URL", "").rstrip("/")
-
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+YANDEX_DISK_TOKEN = os.environ.get("YANDEX_DISK_TOKEN", "").strip()
 
 import json
 
@@ -61,31 +61,85 @@ def ensure_initialized() -> None:
     logger.info("✅ Telegram Application initialized")
 
 # ========= ПОДПИСЧИКИ / РАССЫЛКА =========
-def load_subscribers() -> list[dict]:
-    try:
-        with open(SUBSCRIBERS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return data
-            return []
-    except FileNotFoundError:
-        return []
-    except Exception as e:
-        logger.warning(f"Не удалось загрузить subscribers.json: {e}")
+async def load_subscribers() -> list[dict]:
+    if not YANDEX_DISK_TOKEN:
         return []
 
-def save_subscribers(subscribers: list[dict]) -> None:
-    try:
-        with open(SUBSCRIBERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(subscribers, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.warning(f"Не удалось сохранить subscribers.json: {e}")
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
 
-def add_subscriber(user) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Получаем ссылку на скачивание файла
+            resp = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/download",
+                headers=headers,
+                params={"path": "app:/subscribers.json"}
+            )
+
+            if resp.status_code != 200:
+                return []
+
+            download_url = resp.json().get("href")
+            if not download_url:
+                return []
+
+            file_resp = await client.get(download_url)
+            if file_resp.status_code != 200:
+                return []
+
+            data = file_resp.json()
+            return data if isinstance(data, list) else []
+
+    except Exception as e:
+        logger.warning(f"Не удалось загрузить подписчиков с Яндекс.Диска: {e}")
+        return []
+
+
+async def save_subscribers(subscribers: list[dict]) -> None:
+    if not YANDEX_DISK_TOKEN:
+        return
+
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Получаем ссылку для загрузки/перезаписи файла
+            resp = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/upload",
+                headers=headers,
+                params={
+                    "path": "app:/subscribers.json",
+                    "overwrite": "true"
+                }
+            )
+
+            if resp.status_code != 200:
+                logger.warning(f"Не удалось получить upload URL: {resp.text}")
+                return
+
+            upload_url = resp.json().get("href")
+            if not upload_url:
+                logger.warning("Пустой upload URL от Яндекс.Диска")
+                return
+
+            upload_resp = await client.put(
+                upload_url,
+                content=json.dumps(subscribers, ensure_ascii=False, indent=2).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+
+            if upload_resp.status_code not in (200, 201):
+                logger.warning(f"Не удалось сохранить subscribers.json: {upload_resp.text}")
+
+    except Exception as e:
+        logger.warning(f"Ошибка сохранения подписчиков на Яндекс.Диск: {e}")
+
+
+async def add_subscriber(user) -> None:
     if not user:
         return
 
-    subscribers = load_subscribers()
+    subscribers = await load_subscribers()
     user_id = user.id
 
     exists = any(s.get("chat_id") == user_id for s in subscribers)
@@ -98,7 +152,8 @@ def add_subscriber(user) -> None:
         "first_name": user.first_name,
         "last_name": user.last_name,
     })
-    save_subscribers(subscribers)
+
+    await save_subscribers(subscribers)
     
 # ========= UI =========
 MAIN_MENU = [
