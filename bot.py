@@ -1016,6 +1016,8 @@ async def send_project_card(chat, project_name: str, context: ContextTypes.DEFAU
 
 # ========= COMMANDS & ROUTING =========
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    add_subscriber(update.effective_user)  # ← ВОТ ЭТА СТРОКА
+
     has_contacts = context.user_data.get("has_contacts", False)
     builder_history = context.user_data.get("builder_history", [])
 
@@ -1025,8 +1027,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["has_contacts"] = True
     if builder_history:
         context.user_data["builder_history"] = builder_history
-
     await send_welcome_with_photo(update, context)
+
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["state"] = "MAIN"
     await update.message.reply_text("Главное меню 👇", reply_markup=kb(MAIN_MENU))
@@ -1038,7 +1040,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
     chat_id = update.effective_chat.id
-
+    add_subscriber(update.effective_user)
+    
     # ==== Общие кнопки (работают в любых состояниях) ====
 
     if text == "📍 Локации домов":
