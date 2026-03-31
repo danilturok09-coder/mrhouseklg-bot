@@ -60,6 +60,46 @@ def ensure_initialized() -> None:
     _initialized = True
     logger.info("✅ Telegram Application initialized")
 
+# ========= ПОДПИСЧИКИ / РАССЫЛКА =========
+def load_subscribers() -> list[dict]:
+    try:
+        with open(SUBSCRIBERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            return []
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        logger.warning(f"Не удалось загрузить subscribers.json: {e}")
+        return []
+
+def save_subscribers(subscribers: list[dict]) -> None:
+    try:
+        with open(SUBSCRIBERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(subscribers, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Не удалось сохранить subscribers.json: {e}")
+
+def add_subscriber(user) -> None:
+    if not user:
+        return
+
+    subscribers = load_subscribers()
+    user_id = user.id
+
+    exists = any(s.get("chat_id") == user_id for s in subscribers)
+    if exists:
+        return
+
+    subscribers.append({
+        "chat_id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+    })
+    save_subscribers(subscribers)
+    
 # ========= UI =========
 MAIN_MENU = [
     ["📍 Локации домов", "🏗️ Проекты"],
