@@ -1078,18 +1078,18 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not user or user.id != ADMIN_ID:
-        return await update.message.reply_text("Эта команда доступна только администратору.")
+        user = update.effective_user
+        if not user or user.id != ADMIN_ID:
+            return await update.message.reply_text("Эта команда доступна только администратору.")
 
-    raw_text = " ".join(context.args).strip()
-    if not raw_text or "|" not in raw_text:
-        return await update.message.reply_text(
-            "Использование:\n"
-            "/newhouse Локация | Название дома\n\n"
-            "Пример:\n"
-            "/newhouse Шопино | Простор 85 кв.м на 5 сотках — 7,6 млн ₽"
-        )
+        raw_text = " ".join(context.args).strip()
+        if not raw_text or "|" not in raw_text:
+            return await update.message.reply_text(
+                "Использование:\n"
+                "/newhouse Локация | Название дома\n\n"
+                "Пример:\n"
+                "/newhouse Шопино | Простор 85 кв.м на 5 сотках — 7,6 млн ₽"
+            )
 
     location_name, house_name = [part.strip() for part in raw_text.split("|", 1)]
 
