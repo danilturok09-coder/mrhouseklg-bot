@@ -64,6 +64,7 @@ def ensure_initialized() -> None:
 # ========= ПОДПИСЧИКИ / РАССЫЛКА =========
 async def load_subscribers() -> list[dict]:
     if not YANDEX_DISK_TOKEN:
+        logger.warning("YANDEX_DISK_TOKEN пустой")
         return []
 
     headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
@@ -77,26 +78,33 @@ async def load_subscribers() -> list[dict]:
             )
 
             if resp.status_code != 200:
+                logger.warning(f"load_subscribers: download link error {resp.status_code}: {resp.text}")
                 return []
 
             download_url = resp.json().get("href")
             if not download_url:
+                logger.warning("load_subscribers: пустой href")
                 return []
 
             file_resp = await client.get(download_url)
             if file_resp.status_code != 200:
+                logger.warning(f"load_subscribers: file download error {file_resp.status_code}: {file_resp.text}")
                 return []
 
             data = file_resp.json()
-            return data if isinstance(data, list) else []
+            if not isinstance(data, list):
+                logger.warning(f"load_subscribers: файл не является списком: {data}")
+                return []
+
+            return data
 
     except Exception as e:
         logger.warning(f"Не удалось загрузить подписчиков с Яндекс.Диска: {e}")
         return []
 
-
 async def save_subscribers(subscribers: list[dict]) -> None:
     if not YANDEX_DISK_TOKEN:
+        logger.warning("YANDEX_DISK_TOKEN пустой")
         return
 
     headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
@@ -113,12 +121,12 @@ async def save_subscribers(subscribers: list[dict]) -> None:
             )
 
             if resp.status_code != 200:
-                logger.warning(f"Не удалось получить upload URL: {resp.text}")
+                logger.warning(f"save_subscribers: upload link error {resp.status_code}: {resp.text}")
                 return
 
             upload_url = resp.json().get("href")
             if not upload_url:
-                logger.warning("Пустой upload URL от Яндекс.Диска")
+                logger.warning("save_subscribers: пустой upload href")
                 return
 
             upload_resp = await client.put(
@@ -128,7 +136,10 @@ async def save_subscribers(subscribers: list[dict]) -> None:
             )
 
             if upload_resp.status_code not in (200, 201):
-                logger.warning(f"Не удалось сохранить subscribers.json: {upload_resp.text}")
+                logger.warning(f"save_subscribers: upload error {upload_resp.status_code}: {upload_resp.text}")
+                return
+
+            logger.info(f"Подписчики сохранены: {len(subscribers)}")
 
     except Exception as e:
         logger.warning(f"Ошибка сохранения подписчиков на Яндекс.Диск: {e}")
