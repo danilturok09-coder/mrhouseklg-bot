@@ -154,6 +154,7 @@ async def add_subscriber(user) -> None:
 
     exists = any(s.get("chat_id") == user_id for s in subscribers)
     if exists:
+        logger.info(f"Подписчик уже есть: {user_id}")
         return
 
     subscribers.append({
@@ -164,6 +165,7 @@ async def add_subscriber(user) -> None:
     })
 
     await save_subscribers(subscribers)
+    logger.info(f"Добавлен подписчик: {user_id}")
     
 # ========= UI =========
 MAIN_MENU = [
