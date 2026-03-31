@@ -1036,6 +1036,47 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🏓 Pong! Бот работает ✅")
 
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not user or user.id != ADMIN_ID:
+        return await update.message.reply_text("Эта команда доступна только администратору.")
+
+    text = " ".join(context.args).strip()
+    if not text:
+        return await update.message.reply_text(
+            "Использование:\n"
+            "/broadcast Ваш текст рассылки"
+        )
+
+    subscribers = load_subscribers()
+    if not subscribers:
+        return await update.message.reply_text("Список подписчиков пуст.")
+
+    sent = 0
+    failed = 0
+
+    for sub in subscribers:
+        chat_id = sub.get("chat_id")
+        if not chat_id:
+            continue
+
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML"
+            )
+            sent += 1
+        except Exception as e:
+            logger.warning(f"Не удалось отправить broadcast в {chat_id}: {e}")
+            failed += 1
+
+    await update.message.reply_text(
+        f"✅ Рассылка завершена.\n\n"
+        f"Отправлено: {sent}\n"
+        f"Ошибок: {failed}"
+    )
+    
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     state = context.user_data.get("state", "MAIN")
@@ -1377,9 +1418,11 @@ async def handle_callback(query_update: Update, context: ContextTypes.DEFAULT_TY
 application.add_handler(CommandHandler(["start", "star"], cmd_start))
 application.add_handler(CommandHandler("menu", cmd_menu))
 application.add_handler(CommandHandler("ping", cmd_ping))
+application.add_handler(CommandHandler("broadcast", cmd_broadcast))
 application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 application.add_error_handler(error_handler)
+
 
 # ========= FLASK (экспортируем 'web_app') =========
 web_app = Flask(__name__)
