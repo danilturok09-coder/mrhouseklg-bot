@@ -1201,6 +1201,56 @@ async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ошибок: {failed}"
     )
 
+async def cmd_checkdisk(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not user or user.id != ADMIN_ID:
+        return await update.message.reply_text("Эта команда доступна только администратору.")
+
+    if not YANDEX_DISK_TOKEN:
+        return await update.message.reply_text("❌ YANDEX_DISK_TOKEN пустой")
+
+    headers = {"Authorization": f"OAuth {YANDEX_DISK_TOKEN}"}
+    lines = []
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # 1. Проверка инфы о диске
+            resp_info = await client.get(
+                "https://cloud-api.yandex.net/v1/disk",
+                headers=headers
+            )
+            lines.append(f"disk info: {resp_info.status_code}")
+
+            if resp_info.status_code != 200:
+                lines.append(resp_info.text[:1500])
+                return await update.message.reply_text("\n".join(lines))
+
+            # 2. Проверка ссылки на download
+            resp_download = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/download",
+                headers=headers,
+                params={"path": "app:/subscribers.json"}
+            )
+            lines.append(f"download link: {resp_download.status_code}")
+            lines.append(resp_download.text[:700])
+
+            # 3. Проверка ссылки на upload
+            resp_upload = await client.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/upload",
+                headers=headers,
+                params={
+                    "path": "app:/subscribers.json",
+                    "overwrite": "true"
+                }
+            )
+            lines.append(f"upload link: {resp_upload.status_code}")
+            lines.append(resp_upload.text[:700])
+
+    except Exception as e:
+        return await update.message.reply_text(f"❌ Ошибка проверки диска:\n{e}")
+
+    text = "\n\n".join(lines)
+    await update.message.reply_text(text[:4000])
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
@@ -1544,6 +1594,7 @@ application.add_handler(CommandHandler(["start", "star"], cmd_start))
 application.add_handler(CommandHandler("menu", cmd_menu))
 application.add_handler(CommandHandler("ping", cmd_ping))
 application.add_handler(CommandHandler("broadcast", cmd_broadcast))
+application.add_handler(CommandHandler("checkdisk", cmd_checkdisk))
 application.add_handler(CommandHandler("newhouse", cmd_newhouse))
 application.add_handler(CallbackQueryHandler(handle_callback))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
