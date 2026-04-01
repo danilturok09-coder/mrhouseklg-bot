@@ -86,7 +86,7 @@ async def load_subscribers() -> list[dict]:
                 logger.warning("load_subscribers: пустой href")
                 return []
 
-            file_resp = await client.get(download_url)
+            file_resp = await client.get(download_url, follow_redirects=True)
             if file_resp.status_code != 200:
                 logger.warning(f"load_subscribers: file download error {file_resp.status_code}: {file_resp.text}")
                 return []
@@ -1234,7 +1234,7 @@ async def cmd_checkdisk(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if resp_download.status_code == 200:
                 download_url = resp_download.json().get("href")
                 if download_url:
-                    file_resp = await client.get(download_url)
+                    file_resp = await client.get(download_url, follow_redirects=True)
                     lines.append(f"file status: {file_resp.status_code}")
                     lines.append(f"file body:\n{file_resp.text[:2500]}")
                 else:
