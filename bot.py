@@ -1214,7 +1214,6 @@ async def cmd_checkdisk(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # 1. Проверка инфы о диске
             resp_info = await client.get(
                 "https://cloud-api.yandex.net/v1/disk",
                 headers=headers
@@ -1225,16 +1224,22 @@ async def cmd_checkdisk(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append(resp_info.text[:1500])
                 return await update.message.reply_text("\n".join(lines))
 
-            # 2. Проверка ссылки на download
             resp_download = await client.get(
                 "https://cloud-api.yandex.net/v1/disk/resources/download",
                 headers=headers,
                 params={"path": "app:/subscribers.json"}
             )
             lines.append(f"download link: {resp_download.status_code}")
-            lines.append(resp_download.text[:700])
 
-            # 3. Проверка ссылки на upload
+            if resp_download.status_code == 200:
+                download_url = resp_download.json().get("href")
+                if download_url:
+                    file_resp = await client.get(download_url)
+                    lines.append(f"file status: {file_resp.status_code}")
+                    lines.append(f"file body:\n{file_resp.text[:2500]}")
+                else:
+                    lines.append("❌ href пустой")
+
             resp_upload = await client.get(
                 "https://cloud-api.yandex.net/v1/disk/resources/upload",
                 headers=headers,
@@ -1244,7 +1249,6 @@ async def cmd_checkdisk(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 }
             )
             lines.append(f"upload link: {resp_upload.status_code}")
-            lines.append(resp_upload.text[:700])
 
     except Exception as e:
         return await update.message.reply_text(f"❌ Ошибка проверки диска:\n{e}")
