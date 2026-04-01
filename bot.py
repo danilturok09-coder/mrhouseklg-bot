@@ -1148,6 +1148,12 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Ошибок: {failed}"
     )
 
+def find_house_by_location_and_button(location_name: str, button_text: str):
+    houses = LOCATION_HOUSES.get(location_name, [])
+    for house in houses:
+        if house.get("button", "").strip() == button_text.strip():
+            return house
+    return None
 
 async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -1165,7 +1171,16 @@ async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     location_name, house_name = [part.strip() for part in raw_text.split("|", 1)]
 
-    message_text = (
+    house = find_house_by_location_and_button(location_name, house_name)
+
+    if not house:
+        return await update.message.reply_text(
+            "Не нашёл такой дом в базе.\n\n"
+            "Проверь, чтобы локация и название дома совпадали с кнопкой в LOCATION_HOUSES."
+        )
+
+    photo_url = house.get("photo")
+    caption = (
         "🏡 <b>Новый дом в продаже</b>\n\n"
         f"📍 <b>Локация:</b> {location_name}\n"
         f"🏠 <b>Дом:</b> {house_name}\n\n"
@@ -1185,11 +1200,19 @@ async def cmd_newhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
 
         try:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=message_text,
-                parse_mode="HTML"
-            )
+            if photo_url:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo_url,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=caption,
+                    parse_mode="HTML"
+                )
             sent += 1
         except Exception as e:
             logger.warning(f"Не удалось отправить newhouse в {chat_id}: {e}")
