@@ -323,7 +323,7 @@ LOCATION_HOUSES = {
         {
             "id": "metro_2",
             "button": "Весна 105 кв.м на 7,4 сотках — 8,3 млн ₽",
-            "photo": "https://disk.yandex.ru/i/GQQ_GmqthbXXBQ",
+            "photo": "https://disk.yandex.ru/i/KbSsTG-1VPxY3g",
             "caption": (
                 "🏡 <b>Весна 105 м²</b>\n\n"
                 "📍 <b>Локация:</b> р-н METRO\n"
@@ -334,7 +334,7 @@ LOCATION_HOUSES = {
                 "40:25:000216:946\n\n"
                 "🔌 <b>Коммуникации:</b>\n"
                 "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
-                "🏗 <b>Статус:</b> Апрель 2026\n\n"
+                "🏗 <b>Статус:</b> Готов\n\n"
                 "💰 <b>Стоимость:</b> 8 300 000 ₽"
             ),
             "media_url": "https://disk.yandex.ru/d/0nSzo4yoVi0YMQ"
@@ -342,7 +342,7 @@ LOCATION_HOUSES = {
         {
             "id": "metro_3",
             "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
-            "photo": "https://disk.yandex.ru/i/Jhr_Es9U5nERww",
+            "photo": "https://disk.yandex.ru/i/EMPLaVczYjGw_g",
             "caption": (
                 "🏡 <b>Весна 112 м²</b>\n\n"
                 "📍 <b>Локация:</b> р-н METRO\n"
@@ -353,7 +353,7 @@ LOCATION_HOUSES = {
                 "40:25:000216:843\n\n"
                 "🔌 <b>Коммуникации:</b>\n"
                 "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
-                "🏗 <b>Статус:</b> Май–Июнь 2026\n\n"
+                "🏗 <b>Статус:</b> Май 2026\n\n"
                 "💰 <b>Стоимость:</b> 8 500 000 ₽"
             ),
             "media_url": "https://disk.yandex.ru/d/sDSjqPoIGxT1-Q"
@@ -361,7 +361,7 @@ LOCATION_HOUSES = {
         {
             "id": "metro_4",
             "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
-            "photo": "https://disk.yandex.ru/i/dlOIyx9058baWg",
+            "photo": "https://disk.yandex.ru/i/jugiVbIaL5EfQQ",
             "caption": (
                 "🏡 <b>Весна 112 м²</b>\n\n"
                 "📍 <b>Локация:</b> р-н METRO\n"
@@ -372,7 +372,7 @@ LOCATION_HOUSES = {
                 "40:25:000216:843\n\n"
                 "🔌 <b>Коммуникации:</b>\n"
                 "• Газ\n• Электричество\n• Центральная вода\n• Септик\n\n"
-                "🏗 <b>Статус:</b> Май–Июнь 2026\n\n"
+                "🏗 <b>Статус:</b> Май 2026\n\n"
                 "💰 <b>Стоимость:</b> 8 500 000 ₽"
             ),
             "media_url": "https://disk.yandex.ru/d/2vlojDb2jj6Gaw"
@@ -380,7 +380,7 @@ LOCATION_HOUSES = {
         {
             "id": "metro_5",
             "button": "Весна 112 кв.м на 7,3 сотках — 8,5 млн ₽",
-            "photo": "https://disk.yandex.ru/i/ta1rjsMygOgLFA",
+            "photo": "https://disk.yandex.ru/i/XIkxTW55gWTQgQ",
             "caption": (
                 "🏡 <b>Весна 112 м²</b>\n\n"
                 "📍 <b>Локация:</b> р-н METRO\n"
