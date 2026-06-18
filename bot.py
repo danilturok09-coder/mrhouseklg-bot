@@ -420,7 +420,7 @@ LOCATION_HOUSES = {
         },
         {
             "id": "kp_yuzhniy_2",
-            "button": "Простор 135 кв.м на 6,5 сотках — 8,9 млн ₽",
+            "button": "Простор 135 кв.м на 6,5 сотках — 9,2 млн ₽",
             "photo": "https://disk.yandex.ru/i/H6FDSDnrldYFsQ",
             "caption": (
                 "🏡 <b>Простор 135 м²</b>\n\n"
@@ -433,7 +433,7 @@ LOCATION_HOUSES = {
                 "🔌 <b>Коммуникации:</b>\n"
                 "• Газ\n• Электричество\n• Септик\n• Колодец\n\n"
                 "🏗 <b>Статус:</b> Готов\n\n"
-                "💰 <b>Стоимость:</b> 8 900 000 ₽"
+                "💰 <b>Стоимость:</b> 9 200 000 ₽"
             ),
             "media_url": "https://disk.yandex.ru/d/Zx16lfKXNHWxMA"
         }
