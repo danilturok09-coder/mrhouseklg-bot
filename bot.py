@@ -421,7 +421,7 @@ LOCATION_HOUSES = {
         {
             "id": "kp_yuzhniy_2",
             "button": "Простор 135 кв.м на 6,5 сотках — 9,2 млн ₽",
-            "photo": "https://disk.yandex.ru/i/H6FDSDnrldYFsQ",
+            "photo": "https://disk.yandex.ru/i/gnKLrhwJ1i4ynQ",
             "caption": (
                 "🏡 <b>Простор 135 м²</b>\n\n"
                 "📍 <b>Локация:</b> КП Южный\n"
